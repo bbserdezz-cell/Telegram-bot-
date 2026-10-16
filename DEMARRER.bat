@@ -1,0 +1,2 @@
+@echo off
+powershell.exe -NoProfile -Command "$root=Join-Path $env:LOCALAPPDATA 'TelegramReposter'; if(Test-Path (Join-Path $root 'python-path.txt')){Remove-Item (Join-Path $root 'STOP') -ErrorAction SilentlyContinue; Start-Process powershell.exe -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -File ' + [char]34 + (Join-Path $root 'windows\run.ps1') + [char]34) -WindowStyle Minimized}else{Write-Host 'Lance INSTALLER.bat avant de demarrer.'}"

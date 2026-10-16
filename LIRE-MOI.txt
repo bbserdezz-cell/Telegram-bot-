@@ -1,0 +1,37 @@
+BOT TELEGRAM - WINDOWS 10 / 11
+
+1. Extrais tout le ZIP dans un dossier (ne lance pas directement depuis le ZIP).
+2. Double-clique INSTALLER.bat.
+3. Colle le jeton du bot quand la fenetre le demande. Rien ne s'affiche pendant la saisie : c'est normal. Valide avec Entree.
+4. Le programme controle le jeton, les droits de publication et les sources, puis demarre.
+
+Si Python manque, l'installateur essaie de l'installer via winget. Si cela echoue, il ouvre le site officiel Python : installe Python 3.12 ou plus, puis relance INSTALLER.bat.
+
+Le jeton est chiffre par Windows pour ton compte utilisateur. Il n'est pas dans ce ZIP et n'est pas enregistre en clair. Ne partage pas ton dossier d'installation.
+
+FONCTIONNEMENT
+- Meme format valide : photos, nom du produit, lien, -15% : Erdezz14 !!
+- Jusqu'a 15 annonces inedites toutes les 45 minutes, s'il en reste assez.
+- Historique du cloud inclus : ne supprime pas la base pour eviter les doublons.
+- Demarre automatiquement quand tu ouvres ta session Windows.
+- Redemarre sous 30 secondes si Python s'arrete avec une erreur.
+- Apres une panne de courant, il faut rallumer le PC et ouvrir ta session.
+- Le PC doit rester ALLUME, CONNECTE et sans VEILLE. Tu peux fermer ChatGPT.
+- Dans Parametres Windows > Systeme > Alimentation, regle la veille sur secteur sur Jamais. Tu peux laisser l'ecran s'eteindre. Ne ferme pas le capot si cela met ton ordinateur en veille.
+- Aucun hebergement externe n'est installe : ce programme ne fonctionne pas quand le PC est eteint ou en veille.
+- Aucun fonctionnement pendant un mois sans interruption ne peut etre garanti : Internet, Telegram et Windows doivent rester disponibles.
+
+DOUBLE INSTANCE
+Arrete le bot dans le cloud avant d'utiliser Windows. L'historique et le verrou ne sont pas partages entre deux ordinateurs. Faire tourner les deux provoquerait des doublons.
+
+DEMARRER.bat : relancer manuellement.
+ARRETER.bat : arreter le bot et sa relance automatique.
+Apres ARRETER, utilise DEMARRER.bat pour reprendre.
+Fermer seulement la fenetre du bot arrete les envois jusqu'au prochain lancement.
+
+Installation : %LOCALAPPDATA%\TelegramReposter
+Historique : data\history.sqlite3 dans ce dossier.
+Journaux : logs\bot-AAAA-MM-JJ.log dans ce dossier.
+Pour desactiver le demarrage automatique, supprime le raccourci Bot Telegram dans le dossier ouvert par Windows+R puis shell:startup.
+
+Preparation : tests Python executes sous Linux ; installation Windows a verifier sur ton PC.

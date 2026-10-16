@@ -1,0 +1,13 @@
+data/
+__pycache__/
+.env
+*.session
+
+# Credentials and local runtime files
+.env.*
+*.protected
+python-path.txt
+STOP
+logs/
+*.sqlite3
+*.sqlite3-*
