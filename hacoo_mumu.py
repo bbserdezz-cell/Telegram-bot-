@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
+import uuid
 from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
 
@@ -36,7 +37,11 @@ def affiliate_url(value):
 
 def nodes(xml):
     try:
-        return list(ET.fromstring(xml).iter('node'))
+        root = ET.fromstring(xml)
+        result = list(root.iter('node'))
+        if root.tag != 'hierarchy' or not result:
+            raise AutomationError('Le diagnostic ne contient pas de structure Android.')
+        return result
     except ET.ParseError:
         raise AutomationError('Écran Android illisible.') from None
 
@@ -88,17 +93,26 @@ class Adb:
         self.executable = str(Path(executable).resolve())
         self.serial = serial
 
-    def run(self, *args):
+    def run(self, *args, check=True):
         try:
             result = subprocess.run([self.executable, '-s', self.serial, *args],
-                                    capture_output=True, timeout=30, check=True)
+                                    capture_output=True, timeout=30, check=check)
             return result.stdout.decode('utf-8', errors='replace')
         except (OSError, subprocess.SubprocessError):
             raise AutomationError('Commande ADB impossible. Vérifie MuMu et sa connexion ADB.') from None
 
     def screen(self):
-        self.run('shell', 'uiautomator', 'dump', '/sdcard/hacoo-automation.xml')
-        return self.run('shell', 'cat', '/sdcard/hacoo-automation.xml')
+        remote = '/sdcard/hacoo-automation-' + uuid.uuid4().hex + '.xml'
+        try:
+            self.run('shell', 'uiautomator', 'dump', remote, check=False)
+            xml = self.run('shell', 'cat', remote, check=False)
+            nodes(xml)  # Validate fresh output, not the unreliable dump exit code.
+            return xml
+        finally:
+            try:
+                self.run('shell', 'rm', '-f', remote, check=False)
+            except AutomationError:
+                pass
 
     def tap(self, node):
         x, y = bounds_center(node)

@@ -1,4 +1,5 @@
 import unittest
+import subprocess
 from unittest.mock import patch
 import hacoo_mumu as h
 
@@ -12,6 +13,28 @@ RESULT = '''<hierarchy><node text="Promote Link"/><node text="https://c.onlyaff.
 
 
 class Tests(unittest.TestCase):
+    @patch('hacoo_mumu.subprocess.run')
+    def test_dump_nonzero_with_fresh_valid_xml_is_accepted(self, run):
+        run.side_effect = [subprocess.CompletedProcess([], 1, b'UI hierarchy dumped'),
+                           subprocess.CompletedProcess([], 0, screen().encode()),
+                           subprocess.CompletedProcess([], 0, b'')]
+        self.assertEqual(h.Adb('adb.exe', 'device').screen(), screen())
+        dump, read, cleanup = run.call_args_list
+        self.assertFalse(dump.kwargs['check'])
+        self.assertEqual(dump.args[0][-1], read.args[0][-1])
+        self.assertEqual(read.args[0][-1], cleanup.args[0][-1])
+        self.assertNotEqual(read.args[0][-1], '/sdcard/hacoo-automation.xml')
+
+    @patch('hacoo_mumu.subprocess.run')
+    def test_dump_success_without_valid_xml_is_rejected(self, run):
+        for invalid in [b'', b'<hierarchy/>', b'<unrelated><node/></unrelated>', b'<hierarchy>']:
+            with self.subTest(xml=invalid):
+                run.side_effect = [subprocess.CompletedProcess([], 0, b'success'),
+                                   subprocess.CompletedProcess([], 0, invalid),
+                                   subprocess.CompletedProcess([], 0, b'')]
+                with self.assertRaises(h.AutomationError):
+                    h.Adb('adb.exe', 'device').screen()
+
     def test_codes_and_url(self):
         self.assertEqual(h.product_url('40763432'), 'https://hacoo.pl/detail/40763432')
         self.assertEqual(h.product_code('4012345'), '4012345')
