@@ -9,7 +9,11 @@ def screen(text=''):
     <node class="android.widget.EditText" text="{text}" bounds="[10,40][200,100]"/>
     <node text="Create Link" bounds="[10,110][200,160]"/></hierarchy>'''
 
-RESULT = '''<hierarchy><node text="Promote Link"/><node text="https://c.onlyaff.app/ddSN7T"/></hierarchy>'''
+RESULT = '''<hierarchy><node class="android.app.Dialog" text="Promote Link">
+<node class="android.widget.TextView" text="Promote Link"/>
+<node class="android.widget.EditText" enabled="false" text="https://c.onlyaff.app/ddSN7T"/>
+<node class="android.widget.Button" text="Close" enabled="true" clickable="true" bounds="[100,20][140,60]"/>
+</node></hierarchy>'''
 
 
 class Tests(unittest.TestCase):
@@ -43,21 +47,25 @@ class Tests(unittest.TestCase):
 
     def test_result_requires_dialog_and_unique_valid_link(self):
         self.assertEqual(h.generated_link(RESULT), 'https://c.onlyaff.app/ddSN7T')
-        for bad in [RESULT.replace('Promote Link','Other'), RESULT.replace('</hierarchy>', '<node text="https://c.onlyaff.app/other"/></hierarchy>')]:
+        for bad in [RESULT.replace('Promote Link','Other'), RESULT.replace('</node>', '<node text="https://c.onlyaff.app/other"/></node>')]:
             with self.assertRaises(h.AutomationError): h.generated_link(bad)
         for bad in ['http://c.onlyaff.app/x', 'https://c.onlyaff.app.evil.test/x', 'https://user@c.onlyaff.app/x']:
             with self.assertRaises(h.AutomationError): h.affiliate_url(bad)
 
+    def test_links_outside_dialog_are_ignored(self):
+        xml = RESULT.replace('</hierarchy>', '<node text="https://c.onlyaff.app/outside"/></hierarchy>')
+        self.assertEqual(h.generated_link(xml), 'https://c.onlyaff.app/ddSN7T')
+
     @patch('hacoo_mumu.time.sleep')
     def test_conversion_checks_input_then_creates(self, sleep):
         class Fake:
-            def __init__(self): self.screens=iter([screen('old'),screen(h.product_url('40763432')),RESULT]);self.taps=[];self.commands=[]
+            def __init__(self): self.screens=iter([RESULT,screen('old'),screen(h.product_url('40763432')),RESULT,screen()]);self.taps=[];self.commands=[]
             def screen(self): return next(self.screens)
             def tap(self,node):self.taps.append(h.label(node))
             def run(self,*args):self.commands.append(args)
         adb=Fake()
         self.assertEqual(h.convert(adb,'40763432')['affiliate_url'],'https://c.onlyaff.app/ddSN7T')
-        self.assertEqual(adb.taps[-1],'Create Link')
+        self.assertEqual(adb.taps, ['Close', 'old', 'Create Link', 'Close'])
         self.assertIn(('shell','input','text','https://hacoo.pl/detail/40763432'),adb.commands)
 
     def test_wrong_screen_or_unverified_input_stops(self):
@@ -66,7 +74,7 @@ class Tests(unittest.TestCase):
             def screen(self):return next(self.screens)
             def tap(self,node):self.taps.append(h.label(node))
             def run(self,*args):pass
-        for screens in [[RESULT], [screen(),screen('wrong')]]:
+        for screens in [[RESULT.replace('Close', 'Other')], [screen(),screen('wrong')]]:
             adb=Fake(screens)
             with self.assertRaises(h.AutomationError):h.convert(adb,'40763432')
             self.assertNotIn('Create Link',adb.taps)

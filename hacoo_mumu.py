@@ -76,16 +76,45 @@ def input_field(xml):
     return candidates[0]
 
 
+def result_dialog(xml):
+    matches = [n for n in nodes(xml)
+               if n.get('class') == 'android.app.Dialog'
+               and label(n).casefold() == 'promote link']
+    if len(matches) != 1:
+        raise AutomationError('Fenêtre Promote Link absente ou ambiguë.')
+    return matches[0]
+
+
 def generated_link(xml):
-    # Require the result dialog, so a link elsewhere on the page is never accepted.
-    unique_label(xml, 'Promote Link')
+    # The dialog and its heading share a label. Only inspect this dialog's contents.
+    dialog = result_dialog(xml)
     links = set()
-    for node in nodes(xml):
+    for node in dialog.iter('node'):
         for value in re.findall(r"https://c\.onlyaff\.app/[^\s<>\"']+", label(node)):
             links.add(affiliate_url(value))
     if len(links) != 1:
         raise AutomationError('Aucun lien affilié unique lisible dans la fenêtre de résultat.')
     return links.pop()
+
+
+def close_result(adb, xml):
+    dialog = result_dialog(xml)
+    buttons = [n for n in dialog.iter('node')
+               if label(n).casefold() == 'close'
+               and n.get('class') == 'android.widget.Button'
+               and n.get('enabled') == 'true' and n.get('clickable') == 'true']
+    if len(buttons) != 1:
+        raise AutomationError('Bouton Close absent ou ambigu dans Promote Link.')
+    adb.tap(buttons[0])
+    for _ in range(10):
+        time.sleep(1)
+        screen = adb.screen()
+        if any(label(n).casefold() == 'promote link' for n in nodes(screen)):
+            continue
+        unique_label(screen, 'Link Customize')
+        input_field(screen)
+        return screen
+    raise AutomationError('La fermeture de Promote Link ne peut pas être confirmée.')
 
 
 class Adb:
@@ -123,9 +152,9 @@ def convert(adb, code):
     """Requires Hacoo already logged in with Link Customize open; no blind taps."""
     url = product_url(code)
     screen = adb.screen()
-    unique_label(screen, 'Link Customize')
     if any(label(n).casefold() == 'promote link' for n in nodes(screen)):
-        raise AutomationError('Ferme la précédente fenêtre Promote Link avant de créer un nouveau lien.')
+        screen = close_result(adb, screen)
+    unique_label(screen, 'Link Customize')
     field = input_field(screen)
     previous = field.get('text', '')
     if len(previous) > 512:
@@ -143,8 +172,10 @@ def convert(adb, code):
         time.sleep(1)
         screen = adb.screen()
         if any(label(n).casefold() == 'promote link' for n in nodes(screen)):
+            link = generated_link(screen)
+            close_result(adb, screen)
             return {'product_code': product_code(code), 'product_url': url,
-                    'affiliate_url': generated_link(screen)}
+                    'affiliate_url': link}
     raise AutomationError('Hacoo n’a pas affiché de résultat lisible. Aucun lien utilisable confirmé.')
 
 

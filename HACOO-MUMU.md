@@ -8,7 +8,7 @@ Connecteur preparatoire, pas encore un service actif. `hacoo_mumu.py` valide les
 
 `hacoo_requests.py` parse code + nom, cherche des candidats dans les titres et prepare une annonce dont la liste de liens contient uniquement le lien genere. Une correspondance de noms ne prouve pas que les photos representent exactement le produit du code : les variantes doivent etre distinguees.
 
-Les tests utilisent des ecrans Android simules. Ni la vraie interface MuMu, ni la connexion Telegram entrante, ni le parcours complet sur ton PC ne sont encore valides. Le bot existant n'utilise pas ces modules pour ses publications actuelles.
+Les selecteurs ont ete verifies sur les deux diagnostics Android fournis (formulaire et resultat). Le resultat contient un dialogue et un titre portant tous deux le nom Promote Link ; la lecture est limitee au dialogue. Le connecteur ferme le resultat avec Close et verifie le retour au formulaire. Les tests de pilotage utilisent des ecrans simules : les clics reels, la connexion Telegram entrante et le parcours complet sur le PC ne sont pas encore valides. Le bot existant n'utilise pas ces modules pour ses publications actuelles.
 
 ## Prochaine verification sur Windows
 
@@ -21,10 +21,12 @@ Le diagnostic lit l'ecran uniquement. Il ne clique pas et ne publie rien. Il per
 
 ## Test de conversion ulterieur
 
-Une fois les selecteurs verifies, avec Python 3.12+ et Link Customize ouvert :
+Avec Python 3.12+ et Link Customize ouvert, lancer `TESTER-LIEN-HACOO.bat`, puis entrer le code produit. Ce lanceur reutilise `diagnostic-mumu/local-config.json` cree par le diagnostic dans le meme dossier. Il cree un lien sur le compte Hacoo sans rien publier sur Telegram. Le lanceur PowerShell reste a verifier sur Windows.
+
+Commande equivalente :
 
 ```powershell
 python hacoo_mumu.py --adb "CHEMIN\adb.exe" --serial "IDENTIFIANT" convert 40763432
 ```
 
-La fenetre Promote Link doit etre fermee avant une nouvelle conversion. Le parcours automatique depuis l'accueil et la fermeture automatique du resultat restent a adapter au diagnostic reel. Le PC et MuMu doivent rester actifs : Railway seul ne peut pas piloter un emulateur local sans agent de liaison. Ne jamais exposer le port ADB sur Internet. L'agent Telegram devra limiter les demandes au proprietaire du bot avant d'accepter des actions sur son compte.
+Une ancienne fenetre Promote Link est fermee avant la saisie ; son lien n'est jamais reutilise pour le nouveau code. Le parcours automatique depuis l'accueil reste a implementer. Le PC et MuMu doivent rester actifs : Railway seul ne peut pas piloter un emulateur local sans agent de liaison. Ne jamais exposer le port ADB sur Internet. L'agent Telegram devra limiter les demandes au proprietaire du bot avant d'accepter des actions sur son compte.
