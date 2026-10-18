@@ -1,4 +1,4 @@
-param([switch]$Publish)
+param([switch]$Publish, [switch]$ResetToken)
 $ErrorActionPreference = 'Stop'
 $previousToken = $env:TELEGRAM_BOT_TOKEN
 try {
@@ -33,16 +33,17 @@ try {
     Write-Host 'Ouvre Hacoo > Affiliate Program > Promotion > Link Customize.'
     $env:PYTHONUTF8 = '1'
     if ($Publish) {
-        if (-not $env:TELEGRAM_BOT_TOKEN) {
+        if ($ResetToken -or -not $env:TELEGRAM_BOT_TOKEN) {
             $credentialFolder = Join-Path $env:LOCALAPPDATA 'HacooAffiliate'
             $credentialPath = Join-Path $credentialFolder 'token.protected'
             $oldCredential = Join-Path $env:LOCALAPPDATA 'TelegramReposter\token.protected'
-            if (Test-Path $credentialPath) {
+            if (-not $ResetToken -and (Test-Path $credentialPath)) {
                 $secureToken = Get-Content $credentialPath -Raw | ConvertTo-SecureString
-            } elseif (Test-Path $oldCredential) {
+            } elseif (-not $ResetToken -and (Test-Path $oldCredential)) {
                 $secureToken = Get-Content $oldCredential -Raw | ConvertTo-SecureString
             } else {
                 Write-Host 'Colle ici le jeton actuel de @Hacoo2K26_bot. La saisie est masquee.'
+                Write-Host 'Uniquement le jeton, sans guillemets, sans espaces et sans le message de BotFather.'
                 $secureToken = Read-Host 'Jeton Telegram' -AsSecureString
                 if ($secureToken.Length -eq 0) { throw 'Jeton vide.' }
                 New-Item -ItemType Directory -Force $credentialFolder | Out-Null

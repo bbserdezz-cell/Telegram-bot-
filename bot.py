@@ -236,7 +236,23 @@ def multipart(payload, files):
 
 class Telegram:
     def __init__(self, token, destination):
-        self.token, self.destination = token, destination
+        self.token, self.destination = token.strip(), destination
+
+    @staticmethod
+    def api_error(method, code):
+        if code == 401:
+            reason = 'jeton refuse ou revoque. Remplace-le avec CHANGER-JETON-HACOO.bat'
+        elif code == 404 and method == 'getMe':
+            reason = 'jeton ou adresse API invalide. Recopie uniquement le jeton de BotFather'
+        elif code == 403:
+            reason = 'acces refuse par Telegram'
+        elif code == 429:
+            reason = 'limite de requetes atteinte. Attends avant de reessayer'
+        elif isinstance(code, int) and code >= 500:
+            reason = 'service Telegram temporairement indisponible'
+        else:
+            reason = 'requete refusee. Verifie le canal et les droits du bot'
+        return RuntimeError(f'Telegram {method} (HTTP {code}) : {reason}')
 
     def call(self, method, **payload):
         files = payload.pop('_files', None)
@@ -247,10 +263,16 @@ class Telegram:
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
                 data = json.load(response)
+        except urllib.error.HTTPError as error:
+            raise self.api_error(method, error.code) from None
+        except (urllib.error.URLError, TimeoutError, OSError):
+            raise RuntimeError(f'Telegram {method} : connexion a api.telegram.org impossible '
+                               '(reseau, DNS, certificat ou delai depasse). '
+                               'Verifie Internet, le VPN et le pare-feu ; le jeton n a pas ete valide.') from None
         except Exception:
-            raise RuntimeError(f'Telegram: échec de {method}; vérifier accès, droits et jeton') from None
+            raise RuntimeError(f'Telegram {method} : reponse illisible ; aucun nouvel essai automatique') from None
         if not data.get('ok'):
-            raise RuntimeError(f'Telegram: {method} refusé')
+            raise self.api_error(method, data.get('error_code', 'inconnu'))
         return data['result']
 
     def check(self):

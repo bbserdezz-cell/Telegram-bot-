@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 import bot
@@ -18,6 +19,26 @@ def post(n, link=None):
 
 
 class Tests(unittest.TestCase):
+    @patch('bot.urllib.request.urlopen')
+    def test_api_errors_distinguish_token_and_network_without_exposing_secret(self, urlopen):
+        token = '123:fake-secret-for-test'
+        url = f'https://api.telegram.org/bot{token}/getMe'
+        api = bot.Telegram(' ' + token + '\n', '@test')
+        self.assertEqual(api.token, token)
+        cases = [(urllib.error.HTTPError(url, 401, token, {}, None), 'jeton refuse'),
+                 (urllib.error.HTTPError(url, 404, token, {}, None), 'jeton ou adresse'),
+                 (urllib.error.HTTPError(url, 429, token, {}, None), 'limite de requetes'),
+                 (urllib.error.URLError(url), 'connexion'),
+                 (TimeoutError(url), 'delai depasse')]
+        for error, expected in cases:
+            with self.subTest(expected=expected):
+                urlopen.side_effect = error
+                with self.assertRaises(RuntimeError) as caught:
+                    api.call('getMe')
+                self.assertIn(expected, str(caught.exception))
+                self.assertNotIn(token, str(caught.exception))
+                self.assertNotIn(url, str(caught.exception))
+
     def test_instance_lock_releases_and_rejects_duplicate(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'bot.lock'
