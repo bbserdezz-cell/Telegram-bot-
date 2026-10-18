@@ -1,10 +1,25 @@
 # Conversion des liens via le compte Hacoo dans MuMu
 
-Objectif : recevoir un message `40763432 | pantalon Adidas`, chercher des annonces correspondantes dans les sept sources, generer le lien affilie de ce produit dans Hacoo et publier photos, nom, lien personnel et code Erdezz14.
+Objectif : saisir `CODE, nom du produit`, chercher des annonces correspondantes dans les sept sources, generer le lien affilie de ce produit dans Hacoo et publier photos, nom, prix, lien personnel et code Erdezz14.
+
+## Test complet avec publication Telegram
+
+1. Extraire le ZIP et ouvrir Hacoo dans MuMu sur Affiliate Program > Promotion > Link Customize.
+2. Lancer `PUBLIER-LIEN-HACOO.bat`. Il utilise `py -3` et lance le diagnostic automatiquement si necessaire.
+3. Si le jeton n'est pas deja disponible localement, le coller dans la saisie masquee du lanceur. Il est protege par Windows pour ce compte utilisateur, dans `%LOCALAPPDATA%\HacooAffiliate\token.protected`. Ne pas le saisir dans le chat ou dans un fichier du depot. Le jeton de l'ancienne installation locale est reutilise s'il existe.
+4. Saisir le vrai code et le nom, separes par une virgule (le separateur `|` fonctionne aussi).
+5. Choisir le numero d'une annonce. Son lien source s'ouvre pour verifier les photos, le prix et la variante. Taper `OK` si c'est bien le produit du code fourni.
+6. Le connecteur cree le lien dans Hacoo, puis affiche la legende finale. Taper `PUBLIER` pour l'envoyer sur **@hacoolinks2k26**. Entree seule annule.
+
+La recherche consulte jusqu'a cinq pages publiques recentes de chacun des sept canaux, pas toutes leurs archives. Elle exige les mots du nom dans le titre, de 1 a 10 photos et un prix ecrit avec une devise reconnue. En l'absence de resultat, elle ne choisit pas un produit au hasard. Le prix est repris avec ses qualificatifs (par exemple « a partir de »), sans recalculer une reduction ni garantir le tarif actuel chez Hacoo. Les photos restent intactes ; les textes ou liens imprimes dans une image ne sont pas modifies. L'ancien lien de la legende est remplace par le seul lien affilie retourne par Hacoo. Les hashtags et anciens codes promotionnels sont exclus de la legende.
+
+L'historique des codes est conserve dans `%LOCALAPPDATA%\HacooAffiliate\history.sqlite3`, meme apres un nouveau telechargement du ZIP. Un code deja envoye ou dont l'envoi est incertain reste bloque : verifier le canal avant toute reprise. Cet historique est distinct de celui du republicateur periodique.
+
+Ce parcours est un test interactif sur le PC : il n'ecoute pas encore les messages prives envoyes au bot. Il ne modifie pas les publications automatiques de l'ancien bot. Les tests automatises couvrent le parcours avec MuMu et Telegram simules ; l'envoi reel de bout en bout doit encore etre verifie sur Windows.
 
 ## Etat actuel
 
-Connecteur preparatoire, pas encore un service actif. `hacoo_mumu.py` valide les codes de 7 ou 8 chiffres commencant par 40, forme `https://hacoo.pl/detail/CODE`, saisit le lien dans un ecran Link Customize reconnu, verifie la saisie avant Create Link, et lit un lien unique dans Promote Link. Aucun endpoint Hacoo prive n'est invente et aucun lien affilie n'est fabrique localement.
+Connecteur utilisable par le test interactif, pas encore un service actif. `hacoo_mumu.py` valide les codes de 7 ou 8 chiffres commencant par 40, forme `https://hacoo.pl/detail/CODE`, saisit le lien dans un ecran Link Customize reconnu, verifie la saisie avant Create Link, et lit un lien unique dans Promote Link. Aucun endpoint Hacoo prive n'est invente et aucun lien affilie n'est fabrique localement.
 
 `hacoo_requests.py` parse code + nom, cherche des candidats dans les titres et prepare une annonce dont la liste de liens contient uniquement le lien genere. Une correspondance de noms ne prouve pas que les photos representent exactement le produit du code : les variantes doivent etre distinguees.
 
@@ -26,7 +41,7 @@ Avec Python 3.12+ et Link Customize ouvert, lancer `TESTER-LIEN-HACOO.bat`, puis
 Commande equivalente :
 
 ```powershell
-python hacoo_mumu.py --adb "CHEMIN\adb.exe" --serial "IDENTIFIANT" convert 40763432
+py -3 hacoo_mumu.py --adb "CHEMIN\adb.exe" --serial "IDENTIFIANT" convert 40763432
 ```
 
 Une ancienne fenetre Promote Link est fermee avant la saisie ; son lien n'est jamais reutilise pour le nouveau code. Le parcours automatique depuis l'accueil reste a implementer. Le PC et MuMu doivent rester actifs : Railway seul ne peut pas piloter un emulateur local sans agent de liaison. Ne jamais exposer le port ADB sur Internet. L'agent Telegram devra limiter les demandes au proprietaire du bot avant d'accepter des actions sur son compte.

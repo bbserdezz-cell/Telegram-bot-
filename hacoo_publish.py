@@ -1,0 +1,154 @@
+"""Interactive local test: source announcement -> MuMu affiliate link -> Telegram."""
+import argparse
+from concurrent.futures import ThreadPoolExecutor
+import json
+import os
+from pathlib import Path
+import sqlite3
+import webbrowser
+
+import bot
+from hacoo_mumu import Adb, AutomationError, convert
+from hacoo_requests import parse_request, find_announcements, prepare_affiliate_post, price_lines
+
+
+def scan_channel(channel, pages=5):
+    posts = {}
+    before = None
+    failed = False
+    for _ in range(pages):
+        url = f'https://t.me/s/{channel}' + (f'?before={before}' if before else '')
+        try:
+            html = bot.fetch(url)
+            for post in bot.parse_announcements(html):
+                posts[post['source']] = post
+            ids = []
+            for node in bot.Document(html).root.walk():
+                source = node.attrs.get('data-post', '')
+                prefix, _, number = source.partition('/')
+                if prefix.casefold() == channel.casefold() and number.isdigit():
+                    ids.append(int(number))
+            if not ids or min(ids) == before:
+                break
+            before = min(ids)
+        except Exception:
+            failed = True
+            break
+    return list(posts.values()), failed
+
+
+def search(name):
+    print('Recherche dans les 7 sources (jusqu a 5 pages recentes par source)...', flush=True)
+    posts = []
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        for channel, (found, failed) in zip(bot.SOURCES, pool.map(scan_channel, bot.SOURCES)):
+            print(f'@{channel} : {len(found)} annonces accessibles' + (' ; lecture incomplete' if failed else ''), flush=True)
+            posts.extend(found)
+    matches = find_announcements(name, posts, limit=len(posts))
+    return [post for post in matches if price_lines(post)][:10]
+
+
+def history(path):
+    db = sqlite3.connect(path)
+    db.execute('CREATE TABLE IF NOT EXISTS affiliate_deliveries ('
+               'destination TEXT, code TEXT, state TEXT, payload TEXT, result TEXT, '
+               'PRIMARY KEY(destination, code))')
+    db.commit()
+    return db
+
+
+def ensure_new(db, destination, code):
+    row = db.execute('SELECT state FROM affiliate_deliveries WHERE destination=? AND code=?',
+                     (destination, code)).fetchone()
+    if row:
+        raise ValueError('Ce code est deja envoye ou son envoi est incertain. '
+                         'Verifie le canal ; aucune nouvelle publication automatique.')
+
+
+def publish_once(db, telegram, post):
+    if not bot.good_announcement(post):
+        raise ValueError('Annonce incomplete ou legende trop longue ; aucun envoi.')
+    code = post['product_code']
+    with db:
+        db.execute('BEGIN IMMEDIATE')
+        ensure_new(db, telegram.destination, code)
+        db.execute('INSERT INTO affiliate_deliveries VALUES (?,?,?,?,?)',
+                   (telegram.destination, code, 'pending', json.dumps(post), None))
+    try:
+        result = telegram.publish(post)
+        with db:
+            db.execute('UPDATE affiliate_deliveries SET state=?, result=? WHERE destination=? AND code=?',
+                       ('sent', json.dumps(result), telegram.destination, code))
+    except Exception:
+        raise RuntimeError('Envoi non confirme. Verifie le canal avant toute autre tentative ; '
+                           'ce code reste bloque pour eviter un doublon.') from None
+    return result
+
+
+def run(adb, telegram, db):
+    code, name = parse_request(input('Code, nom du produit (exemple : 40763432, nike pegasus) : '))
+    ensure_new(db, telegram.destination, code)
+    telegram.check()
+    matches = search(name)
+    if not matches:
+        raise ValueError('Aucune annonce avec ce nom, des photos et un prix dans les pages consultees. '
+                         'Essaie un nom tel qu il apparait dans la source. Rien ne sera publie.')
+    for index, post in enumerate(matches, 1):
+        print(f"\n{index}. {bot.product_title(post)}\n" + '\n'.join(price_lines(post)))
+        print(f"   {len(post['photos'])} photo(s) — https://t.me/{post['source']}")
+    choice = input('\nNumero de l annonce correspondant au produit (Entree pour annuler) : ').strip()
+    if not choice:
+        print('Annule, aucune publication.')
+        return
+    if not choice.isdigit() or not 1 <= int(choice) <= len(matches):
+        raise ValueError('Numero invalide ; aucune publication.')
+    original = matches[int(choice) - 1]
+    source_url = 'https://t.me/' + original['source']
+    print('Verifie les photos, la variante et le prix dans cette annonce : ' + source_url)
+    try:
+        webbrowser.open(source_url)
+    except Exception:
+        pass
+    print('Le nom seul ne garantit pas que cette annonce correspond au code Hacoo.')
+    if input('Tape OK si cette annonce correspond au produit, sinon Entree : ').strip().upper() != 'OK':
+        print('Annule, aucune publication.')
+        return
+    print('Creation du lien dans MuMu. Laisse Hacoo ouvert sans cliquer...', flush=True)
+    generated = convert(adb, code)
+    post = prepare_affiliate_post(code, original, generated['affiliate_url'])
+    if not bot.good_announcement(post):
+        raise ValueError('Legende incomplete ou trop longue ; aucun envoi.')
+    print('\nAnnonce pour ' + telegram.destination + ' :\n\n' + bot.announcement_text(post))
+    print(f"\nAvec les {len(post['photos'])} photo(s) de l annonce choisie.")
+    if input('Tape PUBLIER pour envoyer cette annonce, sinon Entree : ').strip().upper() != 'PUBLIER':
+        print('Lien cree, publication annulee.')
+        return
+    publish_once(db, telegram, post)
+    print('Annonce publiee : https://t.me/hacoolinks2k26')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--adb', required=True)
+    parser.add_argument('--serial', required=True)
+    args = parser.parse_args()
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token:
+        raise SystemExit('Jeton Telegram absent. Utilise PUBLIER-LIEN-HACOO.bat.')
+    base = Path(os.getenv('LOCALAPPDATA', str(Path.home()))) / 'HacooAffiliate'
+    base.mkdir(parents=True, exist_ok=True)
+    try:
+        with bot.instance_lock(base / 'publish.lock'):
+            db = history(base / 'history.sqlite3')
+            try:
+                run(Adb(args.adb, args.serial), bot.Telegram(token, bot.DESTINATION), db)
+            finally:
+                db.close()
+    except (ValueError, RuntimeError, AutomationError, OSError, sqlite3.Error, EOFError, KeyboardInterrupt) as error:
+        if isinstance(error, (ValueError, RuntimeError)):
+            raise SystemExit(str(error)) from None
+        raise SystemExit('Test interrompu. Aucun nouvel essai automatique ; verifie le canal si un envoi etait en cours.') from None
+
+
+if __name__ == '__main__':
+    main()

@@ -2,6 +2,8 @@
 
 Python 3.12 ou supérieur, sans dépendance externe. Lecture des pages web publiques des sept canaux configurés dans `bot.py`, puis publication vers `@hacoolinks2k26`.
 
+Pour tester un produit précis avec **ton lien affilié Hacoo**, lancer `PUBLIER-LIEN-HACOO.bat` sur le PC où MuMu est ouvert. Voir [les instructions du test Hacoo](HACOO-MUMU.md). Ce test interactif conserve le nom, les photos et le prix de l'annonce choisie, et remplace son lien. Il est distinct du republicateur périodique décrit ci-dessous.
+
 ## Configuration
 
 1. Créer un bot avec @BotFather.

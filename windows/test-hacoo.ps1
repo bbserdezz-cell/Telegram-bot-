@@ -1,4 +1,6 @@
+param([switch]$Publish)
 $ErrorActionPreference = 'Stop'
+$previousToken = $env:TELEGRAM_BOT_TOKEN
 try {
     $root = Split-Path -Parent $PSScriptRoot
     $configPath = Join-Path $root 'diagnostic-mumu\local-config.json'
@@ -29,6 +31,30 @@ try {
     & $python @pythonArgs -c 'import sys; sys.exit(0 if sys.version_info >= (3,12) else 1)'
     if ($LASTEXITCODE -ne 0) { throw 'La commande py doit disposer de Python 3.12 ou plus.' }
     Write-Host 'Ouvre Hacoo > Affiliate Program > Promotion > Link Customize.'
+    $env:PYTHONUTF8 = '1'
+    if ($Publish) {
+        if (-not $env:TELEGRAM_BOT_TOKEN) {
+            $credentialFolder = Join-Path $env:LOCALAPPDATA 'HacooAffiliate'
+            $credentialPath = Join-Path $credentialFolder 'token.protected'
+            $oldCredential = Join-Path $env:LOCALAPPDATA 'TelegramReposter\token.protected'
+            if (Test-Path $credentialPath) {
+                $secureToken = Get-Content $credentialPath -Raw | ConvertTo-SecureString
+            } elseif (Test-Path $oldCredential) {
+                $secureToken = Get-Content $oldCredential -Raw | ConvertTo-SecureString
+            } else {
+                Write-Host 'Colle ici le jeton actuel de @Hacoo2K26_bot. La saisie est masquee.'
+                $secureToken = Read-Host 'Jeton Telegram' -AsSecureString
+                if ($secureToken.Length -eq 0) { throw 'Jeton vide.' }
+                New-Item -ItemType Directory -Force $credentialFolder | Out-Null
+                $secureToken | ConvertFrom-SecureString | Set-Content $credentialPath
+            }
+            $env:TELEGRAM_BOT_TOKEN = [System.Net.NetworkCredential]::new('', $secureToken).Password
+        }
+        Write-Host 'Test de publication sur @hacoolinks2k26. Tu choisiras une annonce avant l envoi.'
+        & $python @pythonArgs (Join-Path $root 'hacoo_publish.py') --adb $config.adb_path --serial $config.serial
+        if ($LASTEXITCODE -ne 0) { throw 'Test interrompu. Lis le message ci-dessus.' }
+        return
+    }
     Write-Host 'Ce test cree un lien affilie sur ton compte. Aucune publication Telegram.'
     $code = Read-Host 'Code produit (7 ou 8 chiffres commencant par 40)'
     if ($code -notmatch '^40[0-9]{5,6}$') { throw 'Code produit invalide.' }
@@ -40,5 +66,6 @@ try {
     Write-Host ('Test arrete : ' + $_.Exception.Message) -ForegroundColor Red
     Write-Host 'Envoie une capture de cette fenetre pour continuer.'
 } finally {
+    if ($Publish) { $env:TELEGRAM_BOT_TOKEN = $previousToken }
     Write-Host 'Tu peux lire le resultat ci-dessus. Pour fermer cette fenetre, clique sur la croix X.'
 }

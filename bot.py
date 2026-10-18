@@ -129,7 +129,8 @@ def announcement_text(post):
     """Use the same channel template for every product without source hashtags."""
     title = product_title(post)
     links = list(dict.fromkeys(post['links']))
-    return (title + '\n\n'
+    prices = '\n'.join(post.get('affiliate_prices', []))
+    return (title + ('\n' + prices if prices else '') + '\n\n'
             + '\n'.join(links) + '\n\n' + PROMO_FOOTER)
 
 
