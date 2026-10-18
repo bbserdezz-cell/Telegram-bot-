@@ -15,29 +15,25 @@ try {
         }
         $config = Get-Content $configPath -Raw | ConvertFrom-Json
     }
-    $candidates = @()
-    $saved = Join-Path $env:LOCALAPPDATA 'TelegramReposter\python-path.txt'
-    if (Test-Path $saved) { $candidates += (Get-Content $saved -Raw).Trim() }
-    if (Get-Command py -ErrorAction SilentlyContinue) {
-        $candidates += (& py -3 -c 'import sys; print(sys.executable)' 2>$null)
-    }
-    if (Get-Command python -ErrorAction SilentlyContinue) {
-        $candidates += (& python -c 'import sys; print(sys.executable)' 2>$null)
-    }
     $python = $null
-    foreach ($candidate in $candidates) {
-        if ($candidate -and (Test-Path $candidate)) {
-            & $candidate -c 'import sys; sys.exit(0 if sys.version_info >= (3,12) else 1)'
-            if ($LASTEXITCODE -eq 0) { $python = $candidate; break }
-        }
+    $pythonArgs = @()
+    $saved = Join-Path $env:LOCALAPPDATA 'TelegramReposter\python-path.txt'
+    if (Get-Command py -ErrorAction SilentlyContinue) {
+        $python = (Get-Command py).Source
+        $pythonArgs = @('-3')
+    } elseif (Test-Path $saved) {
+        $candidate = (Get-Content $saved -Raw).Trim()
+        if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { $python = $candidate }
     }
-    if (-not $python) { throw 'Python 3.12 ou plus est necessaire : https://www.python.org/downloads/windows/' }
+    if (-not $python) { throw 'La commande py est introuvable. Installe Python avec son lanceur Windows : https://www.python.org/downloads/windows/' }
+    & $python @pythonArgs -c 'import sys; sys.exit(0 if sys.version_info >= (3,12) else 1)'
+    if ($LASTEXITCODE -ne 0) { throw 'La commande py doit disposer de Python 3.12 ou plus.' }
     Write-Host 'Ouvre Hacoo > Affiliate Program > Promotion > Link Customize.'
     Write-Host 'Ce test cree un lien affilie sur ton compte. Aucune publication Telegram.'
     $code = Read-Host 'Code produit (7 ou 8 chiffres commencant par 40)'
     if ($code -notmatch '^40[0-9]{5,6}$') { throw 'Code produit invalide.' }
     $env:PYTHONUTF8 = '1'
-    & $python (Join-Path $root 'hacoo_mumu.py') --adb $config.adb_path --serial $config.serial convert $code
+    & $python @pythonArgs (Join-Path $root 'hacoo_mumu.py') --adb $config.adb_path --serial $config.serial convert $code
     if ($LASTEXITCODE -ne 0) { throw 'Conversion non confirmee. Copie le message affiche ci-dessus.' }
     Write-Host 'Conversion terminee, fenetre de resultat fermee. Aucune annonce publiee.'
 } catch {
