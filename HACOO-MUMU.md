@@ -21,7 +21,7 @@ Le diagnostic lit l'ecran uniquement. Il ne clique pas et ne publie rien. Il per
 
 ## Test de conversion ulterieur
 
-Avec Python 3.12+ et Link Customize ouvert, lancer `TESTER-LIEN-HACOO.bat`, puis entrer le code produit. Ce lanceur reutilise `diagnostic-mumu/local-config.json` cree par le diagnostic dans le meme dossier. Il cree un lien sur le compte Hacoo sans rien publier sur Telegram. Le lanceur PowerShell reste a verifier sur Windows.
+Avec Python 3.12+ et Link Customize ouvert, lancer `TESTER-LIEN-HACOO.bat`, puis entrer le code produit. Ce lanceur reutilise `diagnostic-mumu/local-config.json` ou lance automatiquement le diagnostic si la configuration manque ou si adb.exe est introuvable. Aucun dossier a copier. Il cree un lien sur le compte Hacoo sans rien publier sur Telegram. La fenetre reste ouverte pour lire le resultat ; la fermer avec X. Le lanceur PowerShell reste a verifier sur Windows.
 
 Commande equivalente :
 

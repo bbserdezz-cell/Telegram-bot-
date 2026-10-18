@@ -2,12 +2,18 @@ $ErrorActionPreference = 'Stop'
 try {
     $root = Split-Path -Parent $PSScriptRoot
     $configPath = Join-Path $root 'diagnostic-mumu\local-config.json'
-    if (-not (Test-Path $configPath)) {
-        throw 'Lance DIAGNOSTIC-MUMU.bat dans ce dossier avant ce test.'
+    $config = $null
+    if (Test-Path $configPath) {
+        try { $config = Get-Content $configPath -Raw | ConvertFrom-Json } catch { $config = $null }
     }
-    $config = Get-Content $configPath -Raw | ConvertFrom-Json
-    if (-not (Test-Path $config.adb_path) -or -not $config.serial) {
-        throw 'Configuration ADB invalide. Relance DIAGNOSTIC-MUMU.bat.'
+    if (-not $config -or -not $config.adb_path -or -not $config.serial -or
+        -not (Test-Path -LiteralPath $config.adb_path -PathType Leaf)) {
+        Write-Host 'Preparation automatique de MuMu : aucun dossier a copier.'
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'diagnostic-mumu.ps1')
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $configPath)) {
+            throw 'Diagnostic non termine. Envoie une capture de cette fenetre avec le message ci-dessus.'
+        }
+        $config = Get-Content $configPath -Raw | ConvertFrom-Json
     }
     $candidates = @()
     $saved = Join-Path $env:LOCALAPPDATA 'TelegramReposter\python-path.txt'
@@ -36,5 +42,7 @@ try {
     Write-Host 'Conversion terminee, fenetre de resultat fermee. Aucune annonce publiee.'
 } catch {
     Write-Host ('Test arrete : ' + $_.Exception.Message) -ForegroundColor Red
-    exit 1
+    Write-Host 'Envoie une capture de cette fenetre pour continuer.'
+} finally {
+    Write-Host 'Tu peux lire le resultat ci-dessus. Pour fermer cette fenetre, clique sur la croix X.'
 }
