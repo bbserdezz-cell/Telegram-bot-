@@ -1,6 +1,6 @@
 # Conversion des liens via le compte Hacoo dans MuMu
 
-Objectif : saisir `CODE, nom du produit`, chercher des annonces correspondantes dans les sept sources, generer le lien affilie de ce produit dans Hacoo et publier photos, nom, prix, lien personnel et code Erdezz14.
+Objectif : saisir `CODE, nom du produit`, chercher des annonces correspondantes dans les trois sources, generer le lien affilie de ce produit dans Hacoo et publier photos, nom, prix, lien personnel et code Erdezz14.
 
 ## Page simple et publication automatique
 
@@ -29,7 +29,7 @@ Les tests du serveur HTTP et du parcours automatique utilisent un MuMu et un Tel
 
 Si `getMe` echoue, aucun produit n'a encore ete recherche ni publie. Le message distingue maintenant un refus HTTP 401 (jeton invalide/revoque) d'un probleme de connexion. Pour remplacer le jeton local, lancer `CHANGER-JETON-HACOO.bat` et coller uniquement le jeton actuel de BotFather dans la saisie masquee. Ce lanceur remplace le jeton protege et reprend le test ; telecharger un nouveau ZIP seul ne remplace pas le jeton enregistre.
 
-La recherche consulte jusqu'a 30 pages publiques de chacun des sept canaux, pas toutes leurs archives, et peut s'arreter plus tot apres cinq correspondances dans une source. Elle recherche les mots du nom dans le titre ou une ligne descriptive, avec de 1 a 10 photos. En mode manuel uniquement, les annonces sans prix sont affichees et demandent une saisie du prix verifie. En mode automatique et sur la page, elles sont publiees sans prix si celui-ci manque. Aucun prix n'est invente. En l'absence de resultat, elle ne choisit pas un produit au hasard. Le prix est repris avec ses qualificatifs (par exemple « a partir de »), sans recalculer une reduction ni garantir le tarif actuel chez Hacoo. Les photos restent intactes ; les textes ou liens imprimes dans une image ne sont pas modifies. L'ancien lien de la legende est remplace par le seul lien affilie retourne par Hacoo. Les hashtags et anciens codes promotionnels sont exclus de la legende.
+La recherche consulte jusqu'a 30 pages publiques de chacun des trois canaux, pas toutes leurs archives, et peut s'arreter plus tot apres cinq correspondances dans une source. Elle recherche les mots du nom dans le titre ou une ligne descriptive, avec de 1 a 10 photos. En mode manuel uniquement, les annonces sans prix sont affichees et demandent une saisie du prix verifie. En mode automatique et sur la page, elles sont publiees sans prix si celui-ci manque. Aucun prix n'est invente. En l'absence de resultat, elle ne choisit pas un produit au hasard. Le prix est repris avec ses qualificatifs (par exemple « a partir de »), sans recalculer une reduction ni garantir le tarif actuel chez Hacoo. Les photos restent intactes ; les textes ou liens imprimes dans une image ne sont pas modifies. L'ancien lien de la legende est remplace par le seul lien affilie retourne par Hacoo. Les hashtags et anciens codes promotionnels sont exclus de la legende.
 
 L'historique des codes est conserve dans `%LOCALAPPDATA%\HacooAffiliate\history.sqlite3`, meme apres un nouveau telechargement du ZIP. Un code deja envoye ou dont l'envoi est incertain reste bloque : verifier le canal avant toute reprise. Cet historique est distinct de celui du republicateur periodique.
 

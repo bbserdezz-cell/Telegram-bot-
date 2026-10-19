@@ -1,6 +1,8 @@
 # Republication Telegram
 
-Python 3.12 ou supérieur, sans dépendance externe. Lecture des pages web publiques des sept canaux configurés dans `bot.py`, puis publication vers `@hacoolinks2k26`.
+Python 3.12 ou supérieur, sans dépendance externe. Lecture des pages web publiques des trois canaux configurés dans `bot.py`, puis publication vers `@hacoolinks2k26`.
+
+Sources : `haccoyeplinks`, `hacoolinksbladefinds`, `HacooFranceLiens`. Les anciennes sources sont exclues, même si des annonces restent dans l'historique local.
 
 Pour tester un produit précis avec **ton lien affilié Hacoo**, lancer `OUVRIR-SITE-HACOO.bat` sur le PC où MuMu est ouvert. La page demande seulement le code et le nom du modèle et publie sans validation supplémentaire. Voir [les instructions du test Hacoo](HACOO-MUMU.md). Ce mode choisit la premiere annonce correspondante, conserve le nom, les photos et le prix si disponible, et remplace son lien. Il est distinct du republicateur périodique décrit ci-dessous.
 

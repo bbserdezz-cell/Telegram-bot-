@@ -17,8 +17,7 @@ import urllib.parse
 import uuid
 from html.parser import HTMLParser
 
-SOURCES = ['haccoyeplinks', 'hacoo_hacco_links_enlaces', 'hacoou', 'HacooT',
-           'pdgdehco', 'hacoolinksyyep', 'princedehacoo']
+SOURCES = ['haccoyeplinks', 'hacoolinksbladefinds', 'HacooFranceLiens']
 DESTINATION = '@hacoolinks2k26'
 INTERVAL = 45 * 60
 BATCH_SIZE = 15
@@ -175,7 +174,10 @@ def choose(db, limit=BATCH_SIZE):
     rows = list(db.execute("SELECT source,fingerprint,payload FROM posts WHERE state='new'"))
     random.SystemRandom().shuffle(rows)
     selected = []
+    allowed_sources = {channel.casefold() for channel in SOURCES}
     for source, fingerprint, payload in rows:
+        if source.partition('/')[0].casefold() not in allowed_sources:
+            continue
         post = json.loads(payload)
         if not good_announcement(post) or fingerprint in fingerprints or used.intersection(post['links']):
             continue

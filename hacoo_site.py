@@ -100,7 +100,7 @@ class Application:
         self.ready = False
         self.busy = False
         self.message = 'Preparation des annonces… Le premier chargement peut prendre quelques minutes.'
-        self.catalog = 'Lecture des sept sources…'
+        self.catalog = f'Lecture des {len(bot.SOURCES)} sources…'
         self.stop = threading.Event()
         self.results = []
 
@@ -122,7 +122,7 @@ class Application:
                         posts.extend(found)
                         failures += int(failed)
                         with self.lock:
-                            self.catalog = f'Actualisation des annonces : {index}/7 sources consultees…'
+                            self.catalog = f'Actualisation des annonces : {index}/{len(bot.SOURCES)} sources consultees…'
                 with self.lock:
                     if posts:
                         self.posts = posts

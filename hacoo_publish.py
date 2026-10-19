@@ -40,7 +40,7 @@ def scan_channel(channel, pages=30, name=None):
 
 
 def search(name):
-    print('Recherche dans les 7 sources (jusqu a 30 pages par source, cela peut prendre quelques minutes)...', flush=True)
+    print(f'Recherche dans les {len(bot.SOURCES)} sources (jusqu a 30 pages par source, cela peut prendre quelques minutes)...', flush=True)
     posts = []
     with ThreadPoolExecutor(max_workers=3) as pool:
         for channel, (found, failed) in zip(bot.SOURCES, pool.map(lambda c: scan_channel(c, name=name), bot.SOURCES)):

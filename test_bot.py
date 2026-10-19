@@ -19,6 +19,19 @@ def post(n, link=None):
 
 
 class Tests(unittest.TestCase):
+    def setUp(self):
+        sources = patch.object(bot, 'SOURCES', ['source'])
+        sources.start()
+        self.addCleanup(sources.stop)
+
+    def test_old_source_in_history_is_not_selected(self):
+        db = bot.connect(':memory:')
+        old = post(1)
+        old['source'] = 'removed_channel/1'
+        bot.ingest(db, [old, post(2)])
+        self.assertEqual([source for source, _ in bot.choose(db)], ['source/2'])
+        db.close()
+
     @patch('bot.urllib.request.urlopen')
     def test_api_errors_distinguish_token_and_network_without_exposing_secret(self, urlopen):
         token = '123:fake-secret-for-test'
