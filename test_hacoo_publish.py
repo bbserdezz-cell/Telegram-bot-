@@ -1,4 +1,5 @@
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -15,6 +16,36 @@ def original():
 
 
 class Tests(unittest.TestCase):
+    @patch('bot.fetch')
+    def test_first_match_stops_pagination_immediately(self, fetch):
+        fetch.return_value = '''<div class="tgme_widget_message" data-post="source/42">
+        <div class="tgme_widget_message_text">Saucony Jazz<br>https://shop.example/p</div>
+        <a class="tgme_widget_message_photo_wrap" style="background-image:url('https://cdn4.telesco.pe/a')"></a></div>'''
+        result = p.first_in_channel('source', 'saucony jazz', threading.Event())
+        self.assertEqual(result[0]['source'], 'source/42')
+        fetch.assert_called_once_with('https://t.me/s/source')
+
+    @patch.object(bot, 'SOURCES', ['slow', 'fast'])
+    @patch('hacoo_publish.first_in_channel')
+    def test_fast_match_does_not_wait_for_slow_source(self, search):
+        release = threading.Event()
+        result = []
+        def source(channel, name, cancel):
+            if channel == 'slow':
+                release.wait(5)
+                return []
+            return [{'source': 'fast/1'}]
+        search.side_effect = source
+        worker = threading.Thread(target=lambda: result.extend(p.search_first('saucony')))
+        worker.start()
+        try:
+            worker.join(1)
+            self.assertFalse(worker.is_alive(), 'Search waited for a slower source')
+            self.assertEqual(result, [{'source': 'fast/1'}])
+        finally:
+            release.set()
+            worker.join(5)
+
     @patch('hacoo_publish.scan_channel')
     def test_search_keeps_announcements_without_price(self, scan):
         source = original()

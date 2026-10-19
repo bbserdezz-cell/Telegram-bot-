@@ -57,11 +57,16 @@ class Tests(unittest.TestCase):
             self.assertTrue(states[3].startswith('Non traite'))
             self.assertFalse(app.busy)
 
-    def test_cache_search_returns_first_encountered_match(self):
+    @patch('hacoo_site.search_first')
+    @patch('bot.fetch')
+    def test_site_ready_without_fetch_and_searches_only_on_request(self, fetch, search):
         app = Application(Mock(), Mock(), Path('/unused'))
-        first = dict(source='z/2', text='Saucony Jazz homme', photos=['a'])
-        app.posts = [first, dict(source='a/1', text='Saucony Jazz', photos=['b'])]
-        self.assertEqual(app.search('saucony jazz'), [first])
+        self.assertTrue(app.snapshot()['ready'])
+        fetch.assert_not_called()
+        search.assert_not_called()
+        search.return_value = [{'source': 'a/1'}]
+        self.assertEqual(app.search('saucony jazz'), [{'source': 'a/1'}])
+        search.assert_called_once_with('saucony jazz')
 
     @patch('hacoo_publish.convert')
     def test_auto_no_match_has_no_effect(self, convert):
@@ -74,11 +79,8 @@ class Tests(unittest.TestCase):
         db.close()
 
     @patch('hacoo_site.threading.Thread')
-    def test_job_requires_ready_cache_and_serializes_requests(self, thread):
+    def test_site_accepts_first_job_immediately_and_serializes_requests(self, thread):
         app = Application(Mock(), Mock(), Path('/unused'))
-        with self.assertRaises(ValueError):
-            app.submit('40125478', 'saucony jazz')
-        app.ready = True
         app.submit('40125478', 'saucony jazz')
         with self.assertRaises(ValueError):
             app.submit('40125479', 'saucony jazz')
@@ -109,7 +111,7 @@ class Tests(unittest.TestCase):
                 self.assertIn('Code Hacoo', response.read().decode())
                 conn.request('GET', '/status')
                 response = conn.getresponse()
-                self.assertEqual(json.loads(response.read())['ready'], False)
+                self.assertEqual(json.loads(response.read())['ready'], True)
                 body = json.dumps({'code': '40125478', 'name': 'Saucony Jazz'})
                 for headers in [{}, {'Origin': 'https://evil.example', 'X-Hacoo-Token': app.token},
                                 {'Origin': origin, 'X-Hacoo-Token': 'wrong'},

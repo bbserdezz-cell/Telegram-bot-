@@ -1,10 +1,11 @@
 """Interactive local test: source announcement -> MuMu affiliate link -> Telegram."""
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 from pathlib import Path
 import sqlite3
+import threading
 import webbrowser
 
 import bot
@@ -50,6 +51,53 @@ def search(name):
     # Missing prices must be visible to the user, not silently hide matches.
     matches.sort(key=lambda post: not bool(price_lines(post)))
     return matches[:10]
+
+
+def first_in_channel(channel, name, cancel, pages=30):
+    before = None
+    for _ in range(pages):
+        if cancel.is_set():
+            return []
+        url = f'https://t.me/s/{channel}' + (f'?before={before}' if before else '')
+        html = bot.fetch(url)
+        if cancel.is_set():
+            return []
+        for post in bot.parse_announcements(html):
+            match = find_announcements(name, [post], limit=1)
+            if match:
+                return match
+        ids = []
+        for node in bot.Document(html).root.walk():
+            channel_name, _, number = node.attrs.get('data-post', '').partition('/')
+            if channel_name.casefold() == channel.casefold() and number.isdigit():
+                ids.append(int(number))
+        if not ids or (before is not None and min(ids) >= before):
+            break
+        before = min(ids)
+    return []
+
+
+def search_first(name):
+    """Search only on request; return without waiting for slower source requests."""
+    cancel = threading.Event()
+    pool = ThreadPoolExecutor(max_workers=len(bot.SOURCES))
+    futures = [pool.submit(first_in_channel, channel, name, cancel) for channel in bot.SOURCES]
+    failures = 0
+    try:
+        for future in as_completed(futures):
+            try:
+                match = future.result()
+            except Exception:
+                failures += 1
+                continue
+            if match:
+                return match
+        if failures:
+            raise RuntimeError('Recherche incomplete : une ou plusieurs sources sont inaccessibles. Reessaie plus tard.')
+        return []
+    finally:
+        cancel.set()
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def history(path):
@@ -139,7 +187,7 @@ def run(adb, telegram, db):
     print('Annonce publiee : https://t.me/hacoolinks2k26')
 
 
-def run_auto(request, adb, telegram, db, search_fn=search, report=print):
+def run_auto(request, adb, telegram, db, search_fn=search_first, report=print):
     code, name = parse_request(request)
     ensure_new(db, telegram.destination, code)
     report('Recherche de l annonce…')

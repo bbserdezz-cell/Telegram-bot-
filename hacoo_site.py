@@ -2,7 +2,6 @@
 import argparse
 import csv
 import io
-from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -13,8 +12,8 @@ import webbrowser
 
 import bot
 from hacoo_mumu import Adb, product_code
-from hacoo_publish import history, run_auto, scan_channel
-from hacoo_requests import find_announcements, parse_request
+from hacoo_publish import history, run_auto, search_first
+from hacoo_requests import parse_request
 
 
 def parse_batch(text):
@@ -66,7 +65,7 @@ button{width:100%;padding:16px;background:#ff812f;color:#141414;border:0;border-
 <p class="note">Une ligne par produit : code, nom du modele. Maximum 100 produits. Ils seront publies un par un, dans l'ordre du fichier.</p>
 <button id="sendfile" disabled>Importer et publier la liste</button></form>
 <div id="status" role="status" aria-live="polite">Chargement…</div><ol id="results"></ol>
-<p id="catalog"></p><p class="note">Premiere annonce correspondante dans les annonces chargees, sans validation supplementaire. Le prix est conserve s'il est ecrit dans l'annonce. Sans prix disponible, aucun prix n'est ajoute.</p>
+<p id="catalog"></p><p class="note">La recherche commence a l'envoi du produit. La premiere annonce correspondante trouvee est utilisee, sans validation supplementaire. Le prix est conserve s'il est ecrit dans l'annonce. Sans prix disponible, aucun prix n'est ajoute.</p>
 <p class="note">Garde ce programme et MuMu ouverts sur Link Customize. Le delai depend de Hacoo, des photos et de ta connexion.</p></main>
 <script>
 const token='__TOKEN__';let sending=false,clientError='';
@@ -96,12 +95,10 @@ class Application:
         self.adb, self.telegram, self.base = adb, telegram, base
         self.token = secrets.token_hex(32)
         self.lock = threading.Lock()
-        self.posts = []
-        self.ready = False
+        self.ready = True
         self.busy = False
-        self.message = 'Preparation des annonces… Le premier chargement peut prendre quelques minutes.'
-        self.catalog = f'Lecture des {len(bot.SOURCES)} sources…'
-        self.stop = threading.Event()
+        self.message = 'Pret. Saisis un produit ou importe ton fichier.'
+        self.catalog = f'Recherche a la demande dans {len(bot.SOURCES)} canaux.'
         self.results = []
 
     def snapshot(self):
@@ -113,40 +110,8 @@ class Application:
         with self.lock:
             self.message = message
 
-    def refresh(self):
-        while not self.stop.is_set():
-            posts, failures = [], 0
-            try:
-                with ThreadPoolExecutor(max_workers=3) as pool:
-                    for index, (found, failed) in enumerate(pool.map(scan_channel, bot.SOURCES), 1):
-                        posts.extend(found)
-                        failures += int(failed)
-                        with self.lock:
-                            self.catalog = f'Actualisation des annonces : {index}/{len(bot.SOURCES)} sources consultees…'
-                with self.lock:
-                    if posts:
-                        self.posts = posts
-                        self.ready = True
-                        if self.message.startswith('Preparation'):
-                            self.message = 'Pret. Saisis le code et le modele du produit.'
-                    self.catalog = f'{len(self.posts)} annonces en memoire · actualisation toutes les 10 minutes.'
-                    if failures:
-                        self.catalog += ' Certaines sources sont temporairement inaccessibles.'
-                    if not self.ready:
-                        self.catalog = 'Aucune annonce accessible. Nouvelle tentative dans une minute.'
-            except Exception:
-                with self.lock:
-                    self.catalog = 'Actualisation impossible. Nouvelle tentative automatique.'
-            self.stop.wait(600 if self.ready else 60)
-
     def search(self, name):
-        with self.lock:
-            posts = list(self.posts)
-        for post in posts:
-            match = find_announcements(name, [post], limit=1)
-            if match:
-                return match
-        return []
+        return search_first(name)
 
     def submit(self, code, name):
         if not isinstance(code, str) or not isinstance(name, str):
@@ -277,7 +242,6 @@ def main():
     with bot.instance_lock(base / 'publish.lock'):
         app = Application(Adb(args.adb, args.serial), telegram, base)
         server = make_server(app)
-        threading.Thread(target=app.refresh, daemon=True).start()
         address = f'http://127.0.0.1:{server.server_port}'
         print('Page ouverte dans ton navigateur. Garde cette fenetre et MuMu ouverts.', flush=True)
         print(address, flush=True)
@@ -287,7 +251,6 @@ def main():
         except KeyboardInterrupt:
             pass
         finally:
-            app.stop.set()
             server.server_close()
 
 
