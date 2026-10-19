@@ -1,5 +1,7 @@
 """Local browser interface; MuMu and this server must stay running on the PC."""
 import argparse
+import csv
+import io
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -14,6 +16,37 @@ from hacoo_mumu import Adb, product_code
 from hacoo_publish import history, run_auto, scan_channel
 from hacoo_requests import find_announcements, parse_request
 
+
+def parse_batch(text):
+    if not isinstance(text, str) or len(text.encode('utf-8')) > 100000:
+        raise ValueError('Fichier trop volumineux : maximum 100 Ko.')
+    requests, seen = [], {}
+    for number, line in enumerate(text.lstrip('\ufeff').splitlines(), 1):
+        if not line.strip():
+            continue
+        separator = next((s for s in [',', ';', '|', '\t'] if s in line), ',')
+        try:
+            fields = next(csv.reader(io.StringIO(line), delimiter=separator, strict=True))
+            if not requests and len(fields) == 2 and fields[0].strip().lower() == 'code' and fields[1].strip().lower() in ('nom', 'article', 'name'):
+                continue
+            if len(fields) != 2:
+                raise ValueError('Il faut deux colonnes : code et nom.')
+            code = product_code(fields[0])
+            code, name = parse_request(code + ', ' + fields[1])
+        except (ValueError, csv.Error):
+            raise ValueError(f'Ligne {number} invalide. Format attendu : 40125478, Saucony Jazz') from None
+        if code in seen:
+            if seen[code] != name:
+                raise ValueError(f'Ligne {number} : le meme code a deux noms differents.')
+            continue
+        seen[code] = name
+        requests.append(code + ', ' + name)
+        if len(requests) > 100:
+            raise ValueError('Maximum 100 produits par fichier.')
+    if not requests:
+        raise ValueError('Le fichier ne contient aucun produit.')
+    return requests
+
 PAGE = '''<!doctype html><html lang="fr"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Erdezz · Hacoo</title><style>
@@ -27,20 +60,33 @@ button{width:100%;padding:16px;background:#ff812f;color:#141414;border:0;border-
 <p>Ton lien affilie, les photos et le nom du produit, directement sur <a href="https://t.me/hacoolinks2k26" target="_blank" rel="noreferrer">ton canal</a>.</p>
 <form id="form"><label for="code">Code Hacoo</label><input id="code" pattern="40[0-9]{5,6}" inputmode="numeric" placeholder="40125478" required>
 <label for="name">Nom precis du modele</label><input id="name" minlength="3" maxlength="160" placeholder="Saucony Jazz" required>
-<button id="send" disabled>Publier sur Telegram</button><div id="status" role="status" aria-live="polite">Chargement…</div></form>
-<p id="catalog"></p><p class="note">Selection aleatoire parmi les annonces correspondantes, sans validation supplementaire. Le prix est conserve s'il est ecrit dans l'annonce. Sans prix disponible, aucun prix n'est ajoute.</p>
+<button id="send" disabled>Publier sur Telegram</button></form>
+<form id="batch"><label for="file">Ou importer une liste (.txt ou .csv)</label>
+<input id="file" type="file" accept=".txt,.csv,text/plain,text/csv" required>
+<p class="note">Une ligne par produit : code, nom du modele. Maximum 100 produits. Ils seront publies un par un, dans l'ordre du fichier.</p>
+<button id="sendfile" disabled>Importer et publier la liste</button></form>
+<div id="status" role="status" aria-live="polite">Chargement…</div><ol id="results"></ol>
+<p id="catalog"></p><p class="note">Premiere annonce correspondante dans les annonces chargees, sans validation supplementaire. Le prix est conserve s'il est ecrit dans l'annonce. Sans prix disponible, aucun prix n'est ajoute.</p>
 <p class="note">Garde ce programme et MuMu ouverts sur Link Customize. Le delai depend de Hacoo, des photos et de ta connexion.</p></main>
 <script>
-const token='__TOKEN__';let sending=false;
+const token='__TOKEN__';let sending=false,clientError='';
+function disable(value){document.querySelector('#send').disabled=value;document.querySelector('#sendfile').disabled=value;}
 async function status(){try{const r=await fetch('/status');const s=await r.json();
 document.querySelector('#catalog').textContent=s.catalog;
-document.querySelector('#status').textContent=s.message;
-document.querySelector('#send').disabled=sending||s.busy||!s.ready;
-}catch(e){document.querySelector('#status').textContent='Connexion au programme perdue. Relance OUVRIR-SITE-HACOO.bat.';document.querySelector('#send').disabled=true;}}
-document.querySelector('#form').onsubmit=async e=>{e.preventDefault();sending=true;document.querySelector('#send').disabled=true;
-try{const r=await fetch('/publish',{method:'POST',headers:{'Content-Type':'application/json','X-Hacoo-Token':token},body:JSON.stringify({code:document.querySelector('#code').value.trim(),name:document.querySelector('#name').value.trim()})});
-const s=await r.json();if(!r.ok){document.querySelector('#status').textContent=s.error;return;}await status();
-}catch(e){document.querySelector('#status').textContent='Connexion interrompue. Verifie le statut et le canal avant de recommencer.';}finally{sending=false;}};
+document.querySelector('#status').textContent=clientError||s.message;
+disable(sending||s.busy||!s.ready);
+const list=document.querySelector('#results');list.replaceChildren();
+for(const row of s.results||[]){const item=document.createElement('li');item.textContent=row.product+' — '+row.state;list.appendChild(item);}
+}catch(e){document.querySelector('#status').textContent='Connexion au programme perdue. Relance OUVRIR-SITE-HACOO.bat.';disable(true);}}
+async function send(path,data){sending=true;clientError='';disable(true);
+try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Hacoo-Token':token},body:JSON.stringify(data)});
+const s=await r.json();if(!r.ok)clientError=s.error;
+}catch(e){clientError='Connexion interrompue. Verifie le statut et le canal avant de recommencer.';}
+finally{sending=false;await status();}}
+document.querySelector('#form').onsubmit=e=>{e.preventDefault();send('/publish',{code:document.querySelector('#code').value.trim(),name:document.querySelector('#name').value.trim()});};
+document.querySelector('#batch').onsubmit=async e=>{e.preventDefault();const file=document.querySelector('#file').files[0];
+if(!file||file.size>100000){clientError='Choisis un fichier texte de moins de 100 Ko.';await status();return;}
+try{const text=await file.text();await send('/batch',{text});}catch(e){clientError='Impossible de lire ce fichier. Enregistre-le en texte UTF-8.';await status();}};
 status();setInterval(status,1500);
 </script></html>'''
 
@@ -56,10 +102,12 @@ class Application:
         self.message = 'Preparation des annonces… Le premier chargement peut prendre quelques minutes.'
         self.catalog = 'Lecture des sept sources…'
         self.stop = threading.Event()
+        self.results = []
 
     def snapshot(self):
         with self.lock:
-            return dict(ready=self.ready, busy=self.busy, message=self.message, catalog=self.catalog)
+            return dict(ready=self.ready, busy=self.busy, message=self.message, catalog=self.catalog,
+                        results=[dict(row) for row in self.results])
 
     def report(self, message):
         with self.lock:
@@ -94,7 +142,11 @@ class Application:
     def search(self, name):
         with self.lock:
             posts = list(self.posts)
-        return find_announcements(name, posts, limit=len(posts))
+        for post in posts:
+            match = find_announcements(name, [post], limit=1)
+            if match:
+                return match
+        return []
 
     def submit(self, code, name):
         if not isinstance(code, str) or not isinstance(name, str):
@@ -102,6 +154,12 @@ class Application:
         code = product_code(code)
         request = code + ', ' + name
         parse_request(request)
+        self.start_requests([request])
+
+    def submit_batch(self, text):
+        self.start_requests(parse_batch(text))
+
+    def start_requests(self, requests):
         with self.lock:
             if self.busy:
                 raise ValueError('Une publication est deja en cours.')
@@ -109,22 +167,43 @@ class Application:
                 raise ValueError('Les annonces sont encore en cours de chargement.')
             self.busy = True
             self.message = 'Publication en cours…'
-        threading.Thread(target=self.publish, args=(request,), daemon=True).start()
+            self.results = [dict(product=request, state='En attente') for request in requests]
+        threading.Thread(target=self.publish_batch, args=(requests,), daemon=True).start()
 
     def publish(self, request):
+        self.publish_batch([request])
+
+    def publish_batch(self, requests):
         db = None
         try:
             db = history(self.base / 'history.sqlite3')
-            result = run_auto(request, self.adb, self.telegram, db, self.search, self.report)
-            self.report('Publie sur @hacoolinks2k26 : ' + result['title'])
-        except (ValueError, RuntimeError) as error:
-            self.report(str(error))
+            for index, request in enumerate(requests):
+                with self.lock:
+                    if index < len(self.results):
+                        self.results[index]['state'] = 'En cours'
+                try:
+                    run_auto(request, self.adb, self.telegram, db, self.search,
+                             lambda message: self.report(f'{index + 1}/{len(requests)} — {message}'))
+                    state = 'Publie'
+                except ValueError as error:
+                    state = 'Ignore : ' + str(error)
+                with self.lock:
+                    if index < len(self.results):
+                        self.results[index]['state'] = state
+            self.report('Traitement termine. Consulte le resultat de chaque produit ci-dessous.')
+        except RuntimeError as error:
+            self.report('Traitement arrete : ' + str(error))
         except Exception:
             self.report('Operation interrompue. Verifie le canal avant de recommencer.')
         finally:
             if db is not None:
                 db.close()
             with self.lock:
+                for row in self.results:
+                    if row['state'] == 'En cours':
+                        row['state'] = 'Erreur — verifier le message et le canal'
+                    elif row['state'] == 'En attente':
+                        row['state'] = 'Non traite — lot interrompu'
                 self.busy = False
 
 
@@ -161,16 +240,19 @@ def make_server(app, port=0):
             if (not self.valid_host() or self.headers.get('Origin') != origin or
                     not secrets.compare_digest(self.headers.get('X-Hacoo-Token', ''), app.token)):
                 return self.reply(403, {'error': 'Recharge la page locale pour continuer.'})
-            if self.path != '/publish':
+            if self.path not in ('/publish', '/batch'):
                 return self.reply(404, {'error': 'Page introuvable.'})
             try:
                 size = int(self.headers.get('Content-Length', '0'))
-                if not 0 < size <= 4096:
+                if not 0 < size <= (200000 if self.path == '/batch' else 4096):
                     raise ValueError('Demande trop longue ou vide.')
                 data = json.loads(self.rfile.read(size))
                 if not isinstance(data, dict):
                     raise ValueError('Demande invalide.')
-                app.submit(data.get('code'), data.get('name'))
+                if self.path == '/batch':
+                    app.submit_batch(data.get('text'))
+                else:
+                    app.submit(data.get('code'), data.get('name'))
             except (ValueError, UnicodeError) as error:
                 return self.reply(400, {'error': str(error)})
             self.reply(202, {'accepted': True})

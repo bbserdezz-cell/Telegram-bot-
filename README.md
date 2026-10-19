@@ -2,7 +2,7 @@
 
 Python 3.12 ou supérieur, sans dépendance externe. Lecture des pages web publiques des sept canaux configurés dans `bot.py`, puis publication vers `@hacoolinks2k26`.
 
-Pour tester un produit précis avec **ton lien affilié Hacoo**, lancer `OUVRIR-SITE-HACOO.bat` sur le PC où MuMu est ouvert. La page demande seulement le code et le nom du modèle et publie sans validation supplémentaire. Voir [les instructions du test Hacoo](HACOO-MUMU.md). Ce mode choisit une annonce correspondante au hasard, conserve le nom, les photos et le prix si disponible, et remplace son lien. Il est distinct du republicateur périodique décrit ci-dessous.
+Pour tester un produit précis avec **ton lien affilié Hacoo**, lancer `OUVRIR-SITE-HACOO.bat` sur le PC où MuMu est ouvert. La page demande seulement le code et le nom du modèle et publie sans validation supplémentaire. Voir [les instructions du test Hacoo](HACOO-MUMU.md). Ce mode choisit la premiere annonce correspondante, conserve le nom, les photos et le prix si disponible, et remplace son lien. Il est distinct du republicateur périodique décrit ci-dessous.
 
 ## Configuration
 

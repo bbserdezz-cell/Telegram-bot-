@@ -7,7 +7,15 @@ Objectif : saisir `CODE, nom du produit`, chercher des annonces correspondantes 
 1. Extraire le ZIP. Garder le PC allume, connecte et sans mise en veille, avec MuMu et Hacoo ouverts sur Affiliate Program > Promotion > Link Customize.
 2. Lancer `OUVRIR-SITE-HACOO.bat`. Le navigateur ouvre une page locale avec deux champs : code et nom du modele. Le lanceur reutilise le jeton protege et la connexion MuMu deja enregistres.
 3. Attendre le premier chargement des annonces (jusqu'a quelques minutes). Elles restent ensuite en memoire et sont actualisees toutes les dix minutes.
-4. Saisir le code et le nom precis du modele, puis cliquer **Publier sur Telegram**. Une annonce correspondante est choisie au hasard, son lien est remplace par le lien affilie cree dans Hacoo, puis les photos et la legende sont envoyees directement sur **@hacoolinks2k26**. Il n'y a plus de choix numerote ni de validation supplementaire.
+4. Saisir le code et le nom precis du modele, puis cliquer **Publier sur Telegram**. La premiere annonce correspondante dans le cache est choisie, son lien est remplace par le lien affilie cree dans Hacoo, puis les photos et la legende sont envoyees directement sur **@hacoolinks2k26**. Il n'y a plus de choix numerote ni de validation supplementaire.
+
+### Importer une liste
+
+Dans la page, utiliser **Importer une liste (.txt ou .csv)**, choisir le fichier puis cliquer **Importer et publier la liste**. Chaque ligne contient `code, nom du modele` ; les separateurs point-virgule, barre verticale et tabulation sont aussi acceptes. Enregistrer en UTF-8. Une premiere ligne `code,nom` est facultative. Limites : 100 produits uniques et 100 Ko. Les lignes vides et doublons identiques sont ignores ; une ligne invalide ou deux noms differents pour le meme code bloquent tout le fichier avant publication.
+
+Les produits passent un par un dans l'ordre du fichier, sans confirmation. La page affiche le resultat de chaque ligne. Un produit deja envoye ou sans correspondance est ignore. Une erreur de conversion ou un envoi incertain interrompt le lot ; les lignes restantes sont indiquees comme non traitees. Apres verification du canal, on peut reimporter le fichier : l'historique empeche de republier les codes deja envoyes ou incertains. La liste en attente n'est pas reprise automatiquement apres fermeture du programme. Garder le programme et MuMu ouverts jusqu'a la fin.
+
+La recherche s'arrete a la premiere correspondance dans l'ordre des annonces en cache (sources configurees, puis ordre de collecte). Elle ne parcourt plus toutes les correspondances pour les classer ou les tirer au hasard. Le temps de conversion Hacoo et de transfert des photos reste variable.
 
 Le nom ne prouve pas la correspondance avec le code produit. Saisir « Saucony Jazz » plutot que « Saucony » pour reduire les erreurs de modele. Le prix ecrit dans la source est conserve, sans recalcul ; s'il manque, aucun prix n'est ajoute. Aucun prix ne doit etre invente.
 

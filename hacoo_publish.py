@@ -3,7 +3,6 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
-import random
 from pathlib import Path
 import sqlite3
 import webbrowser
@@ -147,7 +146,7 @@ def run_auto(request, adb, telegram, db, search_fn=search, report=print):
     matches = search_fn(name)
     if not matches:
         raise ValueError('Aucune annonce correspondante avec photo. Essaie le nom exact du modele.')
-    original = random.SystemRandom().choice(matches)
+    original = matches[0]
     report('Creation de ton lien affilie dans Hacoo…')
     generated = convert(adb, code)
     post = prepare_affiliate_post(code, original, generated['affiliate_url'])
