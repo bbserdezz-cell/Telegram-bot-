@@ -29,6 +29,10 @@ Les selecteurs ont ete verifies sur les deux diagnostics Android fournis (formul
 
 ## Prochaine verification sur Windows
 
+Le diagnostic tente automatiquement de connecter ADB aux ports en ecoute appartenant aux processus MuMu (connexion a 127.0.0.1 uniquement, 16 ports maximum, quatre secondes maximum par tentative). Il ne change ni le reglage ADB ni le pare-feu. Garder la connexion locale active dans MuMu. Si la detection echoue, le message permet d'arreter sans inventer de port et de transmettre une capture du diagnostic.
+
+Apres un diagnostic reussi, les chemins et l'identifiant ADB sont aussi conserves dans `%LOCALAPPDATA%\HacooAffiliate\mumu-config.json`. Le lanceur les reutilise meme apres suppression du dossier extrait. Il tente de reconnecter l'adresse locale enregistree, puis relance la detection si l'appareil n'est plus disponible. Cette detection PowerShell reste a verifier sur le PC Windows ; elle n'a pas ete executee dans l'environnement Linux de developpement.
+
 1. Telecharger le depot (Code > Download ZIP) et extraire le dossier.
 2. Ouvrir MuMu et Hacoo, connecte a ton compte. Afficher Affiliate Program > Promotion > Link Customize, sans la fenetre de resultat.
 3. Double-cliquer `DIAGNOSTIC-MUMU.bat`. Il utilise le adb.exe de MuMu, sans installation Python. Si necessaire, activer le debogage ADB dans MuMu et renseigner le port local affiche par l'emulateur.

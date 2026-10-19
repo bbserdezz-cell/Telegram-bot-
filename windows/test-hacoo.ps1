@@ -5,8 +5,30 @@ try {
     $root = Split-Path -Parent $PSScriptRoot
     $configPath = Join-Path $root 'diagnostic-mumu\local-config.json'
     $config = $null
-    if (Test-Path $configPath) {
-        try { $config = Get-Content $configPath -Raw | ConvertFrom-Json } catch { $config = $null }
+    . (Join-Path $PSScriptRoot 'mumu-connection.ps1')
+    $persistentConfig = Join-Path $env:LOCALAPPDATA 'HacooAffiliate\mumu-config.json'
+    foreach ($candidateConfig in @($persistentConfig, $configPath)) {
+        if (Test-Path $candidateConfig) {
+            try {
+                $candidate = Get-Content $candidateConfig -Raw | ConvertFrom-Json
+                if ($candidate.adb_path -and $candidate.serial -and (Test-Path -LiteralPath $candidate.adb_path -PathType Leaf)) {
+                    $config = $candidate
+                    break
+                }
+            } catch { }
+        }
+    }
+    if ($config) {
+        if ($config.serial -match '^127\.0\.0\.1:(\d+)$') {
+            Connect-MuMuLocalPort -AdbPath $config.adb_path -Port ([int]$Matches[1])
+        }
+        $oldPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $deviceLines = & $config.adb_path devices
+            $connected = @($deviceLines | Where-Object { $_ -match '^\S+\s+device$' } | ForEach-Object { ($_ -split '\s+')[0] })
+            if ($LASTEXITCODE -ne 0 -or $connected -notcontains $config.serial) { $config = $null }
+        } finally { $ErrorActionPreference = $oldPreference }
     }
     if (-not $config -or -not $config.adb_path -or -not $config.serial -or
         -not (Test-Path -LiteralPath $config.adb_path -PathType Leaf)) {

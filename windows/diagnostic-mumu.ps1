@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'mumu-connection.ps1')
 try {
     Write-Host 'Ouvre MuMu, puis Hacoo > Affiliate Program > Promotion > Link Customize.'
     Write-Host 'Ferme la fenetre Promote Link pour afficher le champ de saisie.'
@@ -30,8 +31,19 @@ try {
     }
     $devices = @(Find-Devices)
     if ($devices.Count -eq 0) {
-        Write-Host 'Active le debogage ADB dans MuMu et releve le port indique par MuMu.'
-        $portText = Read-Host 'Port ADB local affiche dans MuMu'
+        Write-Host 'Recherche automatique du port local de MuMu...'
+        $ports = @(Find-MuMuLocalPorts)
+        foreach ($localPort in $ports) {
+            Write-Host ('Verification du port MuMu ' + $localPort + '...')
+            Connect-MuMuLocalPort -AdbPath $adb -Port $localPort
+        }
+        $devices = @(Find-Devices)
+    }
+    if ($devices.Count -eq 0) {
+        Write-Host 'Aucune connexion trouvee. Garde le debogage ADB local active et Hacoo ouvert.'
+        Write-Host 'Si aucun port n est visible dans MuMu, ne devine pas de numero : envoie une capture de cette fenetre.'
+        $portText = Read-Host 'Port ADB local si connu (sinon Entree pour arreter)'
+        if (-not $portText) { throw 'Detection automatique non concluante. Aucun port saisi.' }
         $portNumber = 0
         if (-not [int]::TryParse($portText, [ref]$portNumber) -or $portNumber -lt 1 -or $portNumber -gt 65535) { throw 'Port invalide.' }
         & $adb connect ('127.0.0.1:' + $portNumber)
@@ -78,6 +90,9 @@ try {
         $ErrorActionPreference = $oldPreference
     }
     @{adb_path=$adb; serial=$serial} | ConvertTo-Json | Set-Content (Join-Path $folder 'local-config.json')
+    $persistentFolder = Join-Path $env:LOCALAPPDATA 'HacooAffiliate'
+    New-Item -ItemType Directory -Force $persistentFolder | Out-Null
+    @{adb_path=$adb; serial=$serial} | ConvertTo-Json | Set-Content (Join-Path $persistentFolder 'mumu-config.json')
     Write-Host 'Diagnostic termine : fichier hacoo-ui.xml dans le dossier diagnostic-mumu.'
     Write-Host 'Ce fichier contient les textes visibles a l ecran. Verifie-le avant de le partager.'
     Write-Host 'Aucun lien cree, aucune annonce publiee.'
