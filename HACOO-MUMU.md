@@ -2,22 +2,30 @@
 
 Objectif : saisir `CODE, nom du produit`, chercher des annonces correspondantes dans les sept sources, generer le lien affilie de ce produit dans Hacoo et publier photos, nom, prix, lien personnel et code Erdezz14.
 
-## Test complet avec publication Telegram
+## Page simple et publication automatique
 
-1. Extraire le ZIP et ouvrir Hacoo dans MuMu sur Affiliate Program > Promotion > Link Customize.
-2. Lancer `PUBLIER-LIEN-HACOO.bat`. Il utilise `py -3` et lance le diagnostic automatiquement si necessaire.
-3. Si le jeton n'est pas deja disponible localement, le coller dans la saisie masquee du lanceur. Il est protege par Windows pour ce compte utilisateur, dans `%LOCALAPPDATA%\HacooAffiliate\token.protected`. Ne pas le saisir dans le chat ou dans un fichier du depot. Le jeton de l'ancienne installation locale est reutilise s'il existe.
-4. Saisir le vrai code et le nom, separes par une virgule (le separateur `|` fonctionne aussi).
-5. Choisir le numero d'une annonce. Son lien source s'ouvre pour verifier les photos, le prix et la variante. Taper `OK` si c'est bien le produit du code fourni.
-6. Le connecteur cree le lien dans Hacoo, puis affiche la legende finale. Taper `PUBLIER` pour l'envoyer sur **@hacoolinks2k26**. Entree seule annule.
+1. Extraire le ZIP. Garder le PC allume, connecte et sans mise en veille, avec MuMu et Hacoo ouverts sur Affiliate Program > Promotion > Link Customize.
+2. Lancer `OUVRIR-SITE-HACOO.bat`. Le navigateur ouvre une page locale avec deux champs : code et nom du modele. Le lanceur reutilise le jeton protege et la connexion MuMu deja enregistres.
+3. Attendre le premier chargement des annonces (jusqu'a quelques minutes). Elles restent ensuite en memoire et sont actualisees toutes les dix minutes.
+4. Saisir le code et le nom precis du modele, puis cliquer **Publier sur Telegram**. Une annonce correspondante est choisie au hasard, son lien est remplace par le lien affilie cree dans Hacoo, puis les photos et la legende sont envoyees directement sur **@hacoolinks2k26**. Il n'y a plus de choix numerote ni de validation supplementaire.
+
+Le nom ne prouve pas la correspondance avec le code produit. Saisir « Saucony Jazz » plutot que « Saucony » pour reduire les erreurs de modele. Le prix ecrit dans la source est conserve, sans recalcul ; s'il manque, aucun prix n'est ajoute. Aucun prix ne doit etre invente.
+
+La page fonctionne sur ce PC uniquement ; elle n'est pas un site public heberge. Elle reste disponible tant que le programme tourne. On peut quitter ChatGPT, mais pas eteindre/mettre en veille le PC ou fermer le programme/MuMu. Le premier chargement, les clics Hacoo et l'envoi des photos peuvent depasser 30 secondes ; aucun delai fixe n'est garanti. Le cache accelere surtout les publications apres chargement. Les sources restent limitees a 30 pages accessibles par canal.
+
+Une seule publication est traitee a la fois. Le meme historique protege contre les doublons et les envois incertains. Le serveur ecoute uniquement sur 127.0.0.1 ; le jeton Telegram n'est jamais envoye au navigateur. Les requetes de publication exigent l'origine locale et une cle de session. Ne pas exposer ce serveur ou ADB sur Internet.
+
+`PUBLIER-LIEN-HACOO.bat` reste disponible pour saisir `CODE, nom` en console et publier automatiquement. Le mode manuel historique reste accessible par la commande `py -3 hacoo_publish.py --adb CHEMIN --serial IDENTIFIANT` sans `--auto`.
+
+Les tests du serveur HTTP et du parcours automatique utilisent un MuMu et un Telegram simules. Le parcours manuel a fonctionne sur le PC de l'utilisateur ; la nouvelle page et son lanceur Windows restent a verifier sur ce PC.
 
 Si `getMe` echoue, aucun produit n'a encore ete recherche ni publie. Le message distingue maintenant un refus HTTP 401 (jeton invalide/revoque) d'un probleme de connexion. Pour remplacer le jeton local, lancer `CHANGER-JETON-HACOO.bat` et coller uniquement le jeton actuel de BotFather dans la saisie masquee. Ce lanceur remplace le jeton protege et reprend le test ; telecharger un nouveau ZIP seul ne remplace pas le jeton enregistre.
 
-La recherche consulte jusqu'a 30 pages publiques de chacun des sept canaux, pas toutes leurs archives, et peut s'arreter plus tot apres cinq correspondances dans une source. Elle recherche les mots du nom dans le titre ou une ligne descriptive, avec de 1 a 10 photos. Les annonces sans prix sont affichees egalement : apres selection, saisir le prix verifie sur Hacoo avec sa devise, ou annuler avec Entree. Aucun prix n'est invente. En l'absence de resultat, elle ne choisit pas un produit au hasard. Le prix est repris avec ses qualificatifs (par exemple « a partir de »), sans recalculer une reduction ni garantir le tarif actuel chez Hacoo. Les photos restent intactes ; les textes ou liens imprimes dans une image ne sont pas modifies. L'ancien lien de la legende est remplace par le seul lien affilie retourne par Hacoo. Les hashtags et anciens codes promotionnels sont exclus de la legende.
+La recherche consulte jusqu'a 30 pages publiques de chacun des sept canaux, pas toutes leurs archives, et peut s'arreter plus tot apres cinq correspondances dans une source. Elle recherche les mots du nom dans le titre ou une ligne descriptive, avec de 1 a 10 photos. En mode manuel uniquement, les annonces sans prix sont affichees et demandent une saisie du prix verifie. En mode automatique et sur la page, elles sont publiees sans prix si celui-ci manque. Aucun prix n'est invente. En l'absence de resultat, elle ne choisit pas un produit au hasard. Le prix est repris avec ses qualificatifs (par exemple « a partir de »), sans recalculer une reduction ni garantir le tarif actuel chez Hacoo. Les photos restent intactes ; les textes ou liens imprimes dans une image ne sont pas modifies. L'ancien lien de la legende est remplace par le seul lien affilie retourne par Hacoo. Les hashtags et anciens codes promotionnels sont exclus de la legende.
 
 L'historique des codes est conserve dans `%LOCALAPPDATA%\HacooAffiliate\history.sqlite3`, meme apres un nouveau telechargement du ZIP. Un code deja envoye ou dont l'envoi est incertain reste bloque : verifier le canal avant toute reprise. Cet historique est distinct de celui du republicateur periodique.
 
-Ce parcours est un test interactif sur le PC : il n'ecoute pas encore les messages prives envoyes au bot. Il ne modifie pas les publications automatiques de l'ancien bot. Les tests automatises couvrent le parcours avec MuMu et Telegram simules ; l'envoi reel de bout en bout doit encore etre verifie sur Windows.
+Ce parcours fonctionne sur le PC : il n'ecoute pas encore les messages prives envoyes au bot. Il ne modifie pas les publications automatiques de l'ancien bot. Les tests automatises couvrent le parcours avec MuMu et Telegram simules.
 
 ## Etat actuel
 

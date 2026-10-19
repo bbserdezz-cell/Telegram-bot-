@@ -3,6 +3,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
+import random
 from pathlib import Path
 import sqlite3
 import webbrowser
@@ -139,10 +140,28 @@ def run(adb, telegram, db):
     print('Annonce publiee : https://t.me/hacoolinks2k26')
 
 
+def run_auto(request, adb, telegram, db, search_fn=search, report=print):
+    code, name = parse_request(request)
+    ensure_new(db, telegram.destination, code)
+    report('Recherche de l annonce…')
+    matches = search_fn(name)
+    if not matches:
+        raise ValueError('Aucune annonce correspondante avec photo. Essaie le nom exact du modele.')
+    original = random.SystemRandom().choice(matches)
+    report('Creation de ton lien affilie dans Hacoo…')
+    generated = convert(adb, code)
+    post = prepare_affiliate_post(code, original, generated['affiliate_url'])
+    report('Envoi des photos et de la legende sur Telegram…')
+    publish_once(db, telegram, post)
+    return {'title': bot.product_title(post), 'source': original['source'],
+            'channel': 'https://t.me/hacoolinks2k26'}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--adb', required=True)
     parser.add_argument('--serial', required=True)
+    parser.add_argument('--auto', action='store_true')
     args = parser.parse_args()
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
@@ -153,7 +172,14 @@ def main():
         with bot.instance_lock(base / 'publish.lock'):
             db = history(base / 'history.sqlite3')
             try:
-                run(Adb(args.adb, args.serial), bot.Telegram(token, bot.DESTINATION), db)
+                telegram = bot.Telegram(token, bot.DESTINATION)
+                if args.auto:
+                    telegram.check()
+                    request = input('Code, nom du modele : ')
+                    run_auto(request, Adb(args.adb, args.serial), telegram, db)
+                    print('Annonce publiee sur @hacoolinks2k26.')
+                else:
+                    run(Adb(args.adb, args.serial), telegram, db)
             finally:
                 db.close()
     except (ValueError, RuntimeError, AutomationError, OSError, sqlite3.Error, EOFError, KeyboardInterrupt) as error:

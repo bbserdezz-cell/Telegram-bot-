@@ -1,4 +1,4 @@
-param([switch]$Publish, [switch]$ResetToken)
+param([switch]$Publish, [switch]$ResetToken, [switch]$Site)
 $ErrorActionPreference = 'Stop'
 $previousToken = $env:TELEGRAM_BOT_TOKEN
 try {
@@ -60,9 +60,9 @@ try {
             $credentialPath = Join-Path $credentialFolder 'token.protected'
             $oldCredential = Join-Path $env:LOCALAPPDATA 'TelegramReposter\token.protected'
             if (-not $ResetToken -and (Test-Path $credentialPath)) {
-                $secureToken = Get-Content $credentialPath -Raw | ConvertTo-SecureString
+                $secureToken = (Get-Content $credentialPath -Raw).Trim() | ConvertTo-SecureString
             } elseif (-not $ResetToken -and (Test-Path $oldCredential)) {
-                $secureToken = Get-Content $oldCredential -Raw | ConvertTo-SecureString
+                $secureToken = (Get-Content $oldCredential -Raw).Trim() | ConvertTo-SecureString
             } else {
                 Write-Host 'Colle ici le jeton actuel de @Hacoo2K26_bot. La saisie est masquee.'
                 Write-Host 'Uniquement le jeton, sans guillemets, sans espaces et sans le message de BotFather.'
@@ -73,8 +73,13 @@ try {
             }
             $env:TELEGRAM_BOT_TOKEN = [System.Net.NetworkCredential]::new('', $secureToken).Password
         }
-        Write-Host 'Test de publication sur @hacoolinks2k26. Tu choisiras une annonce avant l envoi.'
-        & $python @pythonArgs (Join-Path $root 'hacoo_publish.py') --adb $config.adb_path --serial $config.serial
+        if ($Site) {
+            Write-Host 'Ouverture de la page Hacoo. Garde cette fenetre et MuMu ouverts.'
+            & $python @pythonArgs (Join-Path $root 'hacoo_site.py') --adb $config.adb_path --serial $config.serial
+        } else {
+            Write-Host 'Publication automatique sur @hacoolinks2k26, sans choix ni confirmation.'
+            & $python @pythonArgs (Join-Path $root 'hacoo_publish.py') --adb $config.adb_path --serial $config.serial --auto
+        }
         if ($LASTEXITCODE -ne 0) { throw 'Test interrompu. Lis le message ci-dessus.' }
         return
     }
