@@ -4,6 +4,15 @@ from hacoo_requests import parse_request, find_announcements, prepare_affiliate_
 
 
 class Tests(unittest.TestCase):
+    def test_search_uses_product_line_after_generic_heading(self):
+        post = {'source': 'a/1', 'text': 'Nouveautes du jour\nSaucony Jazz\nhttps://example.org', 'photos': ['a']}
+        match = find_announcements('saucony', [post])[0]
+        self.assertTrue(match['text'].startswith('Saucony Jazz\n'))
+        self.assertEqual(match['photos'], post['photos'])
+        self.assertTrue(post['text'].startswith('Nouveautes'))
+        post['text'] = 'Autre produit\nCode promo saucony\nhttps://example.org/saucony'
+        self.assertEqual(find_announcements('saucony', [post]), [])
+
     def test_request_requires_both_code_and_product_name(self):
         self.assertEqual(parse_request('40763432 | pantalon Adidas'),('40763432','pantalon Adidas'))
         for text in ['40763432','pantalon Adidas','40763432 |', '39123456 | pantalon Adidas']:

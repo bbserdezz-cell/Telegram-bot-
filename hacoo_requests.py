@@ -29,9 +29,17 @@ def find_announcements(name, posts, limit=5):
     candidates = []
     for post in posts:
         title = product_title(post)
-        terms = words(title)
-        if query.issubset(terms) and 1 <= len(post.get('photos', [])) <= 10:
+        if not 1 <= len(post.get('photos', [])) <= 10:
+            continue
+        if query.issubset(words(title)):
             candidates.append(post)
+            continue
+        # Some sources put a generic heading before the actual product name.
+        for line in post['text'].splitlines():
+            cleaned = product_title({'text': line})
+            if query.issubset(words(cleaned)):
+                candidates.append({**post, 'text': cleaned + '\n' + post['text']})
+                break
     # These are textual candidates, not proof that a photo depicts a product code.
     candidates.sort(key=lambda p: (len(words(product_title(p)) - query), p['source']))
     return candidates[:limit]

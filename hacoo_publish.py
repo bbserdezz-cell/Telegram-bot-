@@ -9,10 +9,10 @@ import webbrowser
 
 import bot
 from hacoo_mumu import Adb, AutomationError, convert
-from hacoo_requests import parse_request, find_announcements, prepare_affiliate_post, price_lines
+from hacoo_requests import parse_request, find_announcements, prepare_affiliate_post, price_lines, PRICE_PATTERN
 
 
-def scan_channel(channel, pages=5):
+def scan_channel(channel, pages=30, name=None):
     posts = {}
     before = None
     failed = False
@@ -22,6 +22,8 @@ def scan_channel(channel, pages=5):
             html = bot.fetch(url)
             for post in bot.parse_announcements(html):
                 posts[post['source']] = post
+            if name and len(find_announcements(name, list(posts.values()))) >= 5:
+                break
             ids = []
             for node in bot.Document(html).root.walk():
                 source = node.attrs.get('data-post', '')
@@ -38,14 +40,16 @@ def scan_channel(channel, pages=5):
 
 
 def search(name):
-    print('Recherche dans les 7 sources (jusqu a 5 pages recentes par source)...', flush=True)
+    print('Recherche dans les 7 sources (jusqu a 30 pages par source, cela peut prendre quelques minutes)...', flush=True)
     posts = []
     with ThreadPoolExecutor(max_workers=3) as pool:
-        for channel, (found, failed) in zip(bot.SOURCES, pool.map(scan_channel, bot.SOURCES)):
+        for channel, (found, failed) in zip(bot.SOURCES, pool.map(lambda c: scan_channel(c, name=name), bot.SOURCES)):
             print(f'@{channel} : {len(found)} annonces accessibles' + (' ; lecture incomplete' if failed else ''), flush=True)
             posts.extend(found)
     matches = find_announcements(name, posts, limit=len(posts))
-    return [post for post in matches if price_lines(post)][:10]
+    # Missing prices must be visible to the user, not silently hide matches.
+    matches.sort(key=lambda post: not bool(price_lines(post)))
+    return matches[:10]
 
 
 def history(path):
@@ -91,10 +95,10 @@ def run(adb, telegram, db):
     telegram.check()
     matches = search(name)
     if not matches:
-        raise ValueError('Aucune annonce avec ce nom, des photos et un prix dans les pages consultees. '
+        raise ValueError('Aucune annonce avec ce nom et des photos dans les 30 pages maximum consultees par source. '
                          'Essaie un nom tel qu il apparait dans la source. Rien ne sera publie.')
     for index, post in enumerate(matches, 1):
-        print(f"\n{index}. {bot.product_title(post)}\n" + '\n'.join(price_lines(post)))
+        print(f"\n{index}. {bot.product_title(post)}\n" + ('\n'.join(price_lines(post)) or 'Prix non indique dans le texte'))
         print(f"   {len(post['photos'])} photo(s) — https://t.me/{post['source']}")
     choice = input('\nNumero de l annonce correspondant au produit (Entree pour annuler) : ').strip()
     if not choice:
@@ -113,6 +117,14 @@ def run(adb, telegram, db):
     if input('Tape OK si cette annonce correspond au produit, sinon Entree : ').strip().upper() != 'OK':
         print('Annule, aucune publication.')
         return
+    if not price_lines(original):
+        entered_price = input('Prix absent du texte. Entre le prix verifie sur Hacoo avec sa devise (ex. 29,90 EUR), ou Entree pour annuler : ').strip()
+        if not entered_price:
+            print('Annule : aucun prix invente, aucune publication.')
+            return
+        if not PRICE_PATTERN.fullmatch(entered_price):
+            raise ValueError('Prix invalide. Indique uniquement le montant et la devise, par exemple 29,90 EUR.')
+        original = {**original, 'text': original['text'] + '\n' + entered_price}
     print('Creation du lien dans MuMu. Laisse Hacoo ouvert sans cliquer...', flush=True)
     generated = convert(adb, code)
     post = prepare_affiliate_post(code, original, generated['affiliate_url'])

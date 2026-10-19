@@ -15,6 +15,41 @@ def original():
 
 
 class Tests(unittest.TestCase):
+    @patch('hacoo_publish.scan_channel')
+    def test_search_keeps_announcements_without_price(self, scan):
+        source = original()
+        source['text'] = 'Nike Pegasus\nhttps://c.onlyaff.app/OLD'
+        scan.side_effect = lambda channel, **kw: ([source], False) if channel == bot.SOURCES[0] else ([], False)
+        self.assertEqual(p.search('nike pegasus'), [source])
+
+    @patch('hacoo_publish.webbrowser.open')
+    @patch('hacoo_publish.convert')
+    @patch('hacoo_publish.search')
+    @patch('builtins.input')
+    def test_missing_price_requires_valid_user_price_before_conversion(self, prompt, search, convert, browser):
+        source = original()
+        source['text'] = 'Nike Pegasus\nhttps://c.onlyaff.app/OLD'
+        search.return_value = [source]
+        for price in ['', 'OLD15 https://example.org', '29,90 EUR']:
+            with self.subTest(price=price):
+                convert.reset_mock()
+                convert.return_value = {'affiliate_url': 'https://c.onlyaff.app/NEW'}
+                prompt.side_effect = ['40763432, nike pegasus', '1', 'OK', price, 'PUBLIER']
+                api = Mock(destination=bot.DESTINATION)
+                api.publish.return_value = {'message_id': 12}
+                db = p.history(':memory:')
+                if price.startswith('OLD'):
+                    with self.assertRaises(ValueError):
+                        p.run(Mock(), api, db)
+                else:
+                    p.run(Mock(), api, db)
+                if price == '29,90 EUR':
+                    self.assertIn(price, bot.caption(api.publish.call_args.args[0]))
+                else:
+                    convert.assert_not_called()
+                    api.publish.assert_not_called()
+                db.close()
+
     def test_comma_request_prices_and_old_link_removed(self):
         self.assertEqual(parse_request('40763432, nike pegasus'), ('40763432', 'nike pegasus'))
         source = original()
